@@ -74,3 +74,102 @@ Tasks are ordered so the app is runnable early and grows incrementally. Each tas
   - Manually verify: install to iOS home screen, launches full-screen without Safari bar, loads offline after first visit, safe-area layout looks correct.
   - _Requirements: 10.3, 10.4, 11.4_
 ```
+
+
+---
+
+# Implementation Plan — Expansion (Budggt-inspired)
+
+Phases are implemented **one at a time, in this order**, and reviewed before moving on. Each phase leaves the app working. Requirement references point to the expansion requirements (12–22).
+
+## Phase 1 — Localization (Bahasa Indonesia), IDR currency & new bottom nav
+
+- [ ] 1. Create `src/lib/i18n.js` with a flat Bahasa Indonesia string table and a `t` accessor; no hard-coded English in views.
+- [ ] 2. Update `src/lib/format.js` to format Rupiah (`Rp1.250.000`, no decimals) and signed Rupiah for negatives; update amount parsing to whole-rupiah integers.
+- [ ] 3. Update `src/lib/dates.js` for Indonesian date labels and add `isToday`/`isYesterday` helpers.
+- [ ] 4. Translate all existing screens (dashboard, transactions, form, category manager, modals, empty states, validation) to use `i18n` strings.
+- [ ] 5. Redesign the bottom navigation: 4 tabs (Beranda, Dompet, Transaksi, Lainnya) + elevated lime central "+" FAB; add `--accent-lime`, safe-area handling, active-tab styling; expand the router in `main.js`.
+- [ ] 6. Add a **placeholder** Beranda view (basic totals only) and a Lainnya hub (links wired as sections land). The full Dashboard is built later in Phase 9.
+  - _Requirements: 12.1–12.6, 13.1–13.6, 22.1_
+
+## Phase 2 — Dompet (wallets / accounts)
+
+- [ ] 7. IndexedDB v2 upgrade: add `wallets` store + new-store scaffolding; migration seeds a default "Tunai" cash wallet and assigns legacy transactions to it.
+  - [ ] 7.1 Add wallet CRUD to `src/data/db.js`.
+  - [ ] 7.2 Implement migration + safe fallbacks (Req 21).
+- [ ] 8. Store: wallet state, mutations, and derived selectors `walletSaldo`, `totalSaldo`, `walletsWithSaldo` (saldo derived from initial balance + transactions).
+- [ ] 9. `src/views/wallets.js` (Dompet): list wallets with type + derived saldo, total-saldo card, add/edit/delete with confirmation; credit-card balances shown as amount owed / negative.
+- [ ] 10. Add a wallet selector to the transaction form; show wallet on transaction rows; keep saldo consistent on add/edit/delete.
+- [ ] 11. Surface total saldo on Beranda.
+  - _Requirements: 14.1–14.8, 21.1–21.4, 22.1_
+
+## Phase 3 — Transaksi enhancements (filters, search, grouping)
+
+- [ ] 12. Store: `selectTransactionsAdvanced({from,to,walletId,categoryId,type,search})` + `groupByDate` (Hari Ini / Kemarin / dates).
+- [ ] 13. Transaksi view: filter sheet (date range, wallet, category, type) + clear.
+- [ ] 14. Transaksi view: search bar over notes/description (case-insensitive), combined with filters.
+- [ ] 15. Transaksi view: render grouped-by-date sections with Indonesian headings; row shows category, wallet, colored amount, note; empty state.
+  - _Requirements: 15.1–15.8_
+
+## Phase 4 — Atur Budget
+
+- [ ] 16. IDB: `budget` store (singleton) + `budgetGroup` on categories; CRUD in `db.js`.
+- [ ] 17. Store selectors: `categoryBudget`, `budgetProgress` (spent vs limit, over-budget), `groupBudget`; percentage→category via even split within group.
+- [ ] 18. `src/views/budget.js`: expected monthly income input; method toggle (percentage / fixed).
+- [ ] 19. Percentage mode: three sliders (Kebutuhan/Keinginan/Tabungan) with live total and 100% guard blocking save otherwise.
+- [ ] 20. Category→group assignment UI (in budget view and/or category manager).
+- [ ] 21. Fixed mode: per-category Rupiah budget inputs.
+- [ ] 22. Per-category progress bars (spent vs limit) with over-budget indication; link from Lainnya.
+  - _Requirements: 16.1–16.10_
+
+## Phase 5 — Aset (assets / net worth)
+
+- [ ] 23. IDB: `assets` store + CRUD.
+- [ ] 24. Store selectors: `netWorth`, `assetsBreakdown` (Dompet&Akun / Likuid / Tetap), `avgMonthlyExpense`, `runwayMonths` (N/A when expenses are 0).
+- [ ] 25. `src/views/assets.js`: net-worth header, three-total breakdown, Total Runway, manual asset add/edit/delete (Aset Likuid / Aset Tetap); link from Lainnya.
+  - _Requirements: 17.1–17.6_
+
+## Phase 6 — Utang (debt tracking)
+
+- [ ] 26. IDB: `debts` store + CRUD.
+- [ ] 27. Store selectors: `debtRemaining`, `totalDebt`.
+- [ ] 28. `src/views/debts.js`: add/edit/delete debt (name, total, paid, optional due date); per-debt remaining, overall total, overdue indicator; link from Lainnya.
+  - _Requirements: 18.1–18.6_
+
+## Phase 7 — Investasi (investments)
+
+- [ ] 29. IDB: `investments` store + CRUD.
+- [ ] 30. Store selectors: `investmentGainLoss`, `investTotals` (invested, current, gain, gain%).
+- [ ] 31. `src/views/investments.js`: add/edit/delete holding (name, type, invested, current value); per-item and total gain/loss (abs + %, colored); link from Lainnya.
+  - _Requirements: 19.1–19.5_
+
+## Phase 8 — Laporan (reports)
+
+- [ ] 32. Store selectors: `monthlyReport`, `previousMonthComparison` (% change, N/A when prior 0), `topExpenses`.
+- [ ] 33. Extend `src/views/chart.js` with a progress/bar primitive (also used by budget) and comparison indicator.
+- [ ] 34. `src/views/laporan.js`: month selector; income / expenses / net savings; % vs last month; spending-by-category chart; Top Pengeluaran list; link from Lainnya.
+  - _Requirements: 20.1–20.6_
+
+## Phase 9 — Dashboard / Beranda (built LAST, aggregates prior phases)
+
+> Implemented after Budget, Transaksi, Dompet, and Aset exist, so it only summarizes data that is already there.
+
+- [ ] 38. Dashboard selectors in the store: `greeting(now)`, `dailyBudgetRemaining()`, `dailyNetSpend(month)` (day → net spend), `recentTransactions(n)`; reuse existing `previousMonthComparison`, `topExpenses`, `selectMonthlySummary`, `totalSaldo`.
+- [ ] 39. Replace the placeholder Beranda with the full Dashboard in `src/views/beranda.js`:
+  - [ ] 39.1 Time-of-day greeting + total saldo header.
+  - [ ] 39.2 "At a glance" card: today's remaining daily budget (with N/A fallback).
+  - [ ] 39.3 Quick totals: month income vs expenses + progress bar.
+  - [ ] 39.4 Monthly calendar heatmap of daily net spend.
+  - [ ] 39.5 Recent transactions (last 5–10) linking into Transaksi.
+  - [ ] 39.6 Period comparison stats (income & expenses, "+X% vs bulan lalu").
+  - [ ] 39.7 "Pengeluaran Terbesar" top expenses, tagged by budget group.
+  - [ ] 39.8 Quick-access menu to Atur Budget, Aset, Utang, Investasi, Laporan.
+- [ ] 40. Ensure the Dashboard re-renders on any relevant data change.
+  - _Requirements: 22.1–22.11_
+
+## Cross-cutting (each phase)
+
+- [ ] 35. Add every new module path to the service-worker `APP_SHELL` precache list in `sw.js`.
+- [ ] 36. Verify per phase: JS syntax check, selector logic checks (Node), local serve smoke test; keep the app installable/offline.
+- [ ] 37. Commit each completed phase and push (PR per phase or per user preference).
+  - _Requirements: 9.x, 10.x, 21.x_

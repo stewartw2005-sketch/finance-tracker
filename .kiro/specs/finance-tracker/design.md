@@ -197,3 +197,152 @@ Reads are wrapped so a missing/corrupt DB resolves to a valid empty/default stat
 - Currency is display-only (single locale/currency, no conversion) for the initial build.
 - Amounts are stored as positive numbers; `type` conveys income vs expense.
 - Requirement 8 (balance trend) is deferred; the monthly-aggregation selector leaves room to add it without a data-model change.
+
+
+---
+
+# Design — Expansion (Budggt-inspired, Bahasa Indonesia, IDR)
+
+This section extends the original design to cover Requirements 12–22. The tech approach is unchanged: **vanilla JS ES modules, no build step, IndexedDB, hand-written PWA assets, inline SVG charts.** New features are added as additional stores, selectors, and view modules alongside the existing ones. Implementation proceeds in the phased order in the tasks plan.
+
+## Localization & Currency (Req 12)
+
+- **`src/lib/i18n.js`** — a single module exporting a string table `t` (flat keys → Bahasa Indonesia strings) and helpers. All views import labels from here; no hard-coded UI English. Example keys: `t.nav.beranda`, `t.wallet.addTitle`, `t.budget.needs` = "Kebutuhan", etc. A single default locale (`id`) is shipped; the structure leaves room for more locales later but only Indonesian is required.
+- **Currency formatting** — `src/lib/format.js` is updated to format Rupiah: `Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 })`, producing `Rp1.250.000`. A `signedMoney` variant prefixes `-` for negative/owed values and is used for expenses, credit-card balances, and investment losses. Amount **inputs** accept plain integer digits (optionally with `.`/`,` grouping stripped) and are stored as whole-rupiah numbers.
+- **Dates** — `src/lib/dates.js` gains Indonesian formatting via `toLocaleDateString('id-ID', …)` for labels like `18 Sep 2026`, plus relative helpers `isToday` / `isYesterday` for transaction grouping (Req 15.5).
+
+## Navigation redesign (Req 13, 22)
+
+A new fixed bottom bar modeled on the **format** of the reference image: a rounded bar with a **prominent circular "+" button** elevated and overlapping the bar center, and **two nav entries on each side** — **5 tabs total**. The accent color is not fixed to lime; it suits the black theme (chosen during implementation and easy to tweak).
+
+```
+┌────────────────────────────────────────────────────┐
+│  [◱ Beranda]  [👛 Dompet]   (＋)   [⇄ Transaksi]  [☰ Lainnya] │
+└────────────────────────────────────────────────────┘
+                            ▲ elevated circle → Tambah Transaksi
+```
+
+- **5 tabs, left→right:** **(1) Beranda** (Dashboard — first/default), **(2) Dompet**, **(3) center "+"**, **(4) Transaksi**, **(5) Lainnya** (More). Two tabs left of center, two right.
+- **Central "+"** opens the add-transaction modal (now wallet-aware).
+- **Lainnya (More)** is a hub screen linking secondary sections: Atur Budget, Aset, Utang, Investasi, Laporan, Kategori. This keeps the bar to 5 slots while exposing all features (Req 13.6); the same sections are also reachable from the Dashboard quick-access menu (Req 22.9).
+- CSS: the bar uses `--nav-height`, safe-area padding, and a raised `.fab-center` (translated up ~40%). A theme accent token (e.g. `--accent-nav`) drives the center button and active-tab tint; not required to be lime. Tap targets ≥ 44px.
+- **Router** in `main.js` expands from two views to a small view map: `beranda | dompet | transaksi | lainnya | budget | aset | utang | investasi | laporan | kategori`. Secondary screens are full views (not modals) reached from Lainnya, with a back affordance in the header.
+
+## Data models (new & changed)
+
+```ts
+// Existing (unchanged shape, + optional walletId on Transaction)
+interface Transaction {
+  id: string; amount: number; type: 'income'|'expense';
+  categoryId: string; date: string; note?: string; createdAt: number;
+  walletId?: string;            // NEW (Req 14.7); legacy txns migrated to seeded cash wallet
+}
+
+interface Category {
+  id: string; name: string; isDefault: boolean;
+  budgetGroup?: 'needs'|'wants'|'savings'; // NEW (Req 16.6) assignment; null until assigned
+}
+
+// NEW stores
+type WalletType = 'bank' | 'ewallet' | 'cash' | 'credit';
+interface Wallet {
+  id: string; name: string; type: WalletType;
+  balance: number;              // current saldo; may be negative for credit (Req 14.5)
+  createdAt: number;
+}
+
+type BudgetMethod = 'percentage' | 'fixed';
+interface BudgetSettings {
+  id: 'singleton';              // one budget config per user
+  monthlyIncome: number;        // expected monthly income (Req 16.1)
+  method: BudgetMethod;
+  groups: { needs: number; wants: number; savings: number }; // percentages summing to 100 (Req 16.3)
+  fixedByCategory: Record<string, number>;                    // categoryId -> Rp (Req 16.8)
+}
+
+type AssetClass = 'liquid' | 'fixed';   // Aset Likuid / Aset Tetap
+interface Asset {
+  id: string; name: string; assetClass: AssetClass; value: number; createdAt: number;
+}
+
+interface Debt {
+  id: string; name: string; total: number; paid: number;
+  dueDate?: string;             // ISO; optional (Req 18.1)
+  createdAt: number;
+}
+
+type InvestmentType = 'saham' | 'reksadana' | 'kripto' | 'lainnya';
+interface Investment {
+  id: string; name: string; invType: InvestmentType;
+  invested: number; currentValue: number; createdAt: number;
+}
+```
+
+### IndexedDB schema upgrade (Req 21)
+
+- Bump DB version `finance-tracker` → **v2**. In `onupgradeneeded`, create new stores keyed by `id`: `wallets`, `budget`, `assets`, `debts`, `investments`. Keep existing `transactions`/`categories`.
+- **Migration:** on first v2 open, seed a default cash wallet **"Tunai"** and assign any existing transaction without `walletId` to it (Req 21.2). Existing categories get `budgetGroup` left undefined until the user assigns them. All new-store reads use the same safe-fallback wrapper (resolve to `[]`/defaults on error) as the existing repo (Req 21.3).
+- `src/data/db.js` gains CRUD for each new store, mirroring the existing transaction/category functions.
+
+## Wallet ↔ transaction consistency (Req 14.8)
+
+Rather than storing a mutable `balance` that can drift, the design keeps `Wallet.balance` as an **initial balance** plus a **derived delta** computed from transactions:
+
+- `walletSaldo(walletId) = wallet.balance (initial) + Σ(income to wallet) − Σ(expense from wallet)`.
+- Selectors compute saldo on the fly from transactions, so add/edit/delete stays consistent automatically (no manual balance patching, avoids drift). Credit-card wallets naturally go negative when expenses exceed payments (Req 14.4–14.5).
+- Total saldo (Req 14.3) = Σ `walletSaldo` over all wallets (credit negatives subtract).
+
+> Note: this refines Req 14.1's "initial balance" — the stored number is the starting point; displayed saldo is always derived. Deleting a wallet prompts confirmation; linked transactions are reassigned to "Tunai" or flagged, preserving totals (Req 14.6, 21.2).
+
+## Store & selectors (extends `src/state/store.js`)
+
+New in-memory arrays (`wallets`, `assets`, `debts`, `investments`) and a `budget` object, all loaded in `init()` after migration. New mutations mirror existing ones (write-through + notify + error fallback). New selectors:
+
+- **Wallets:** `walletSaldo(id)`, `totalSaldo()`, `walletsWithSaldo()`.
+- **Transaksi:** `selectTransactionsAdvanced({ from, to, walletId, categoryId, type, search })` → filtered list; `groupByDate(list)` → ordered groups with `Hari Ini`/`Kemarin`/date labels (Req 15).
+- **Budget:** `categoryBudget(categoryId)` (from fixed map, or derived from group % split — even distribution across categories in the group as the defined rule for Req 16.7), `budgetProgress()` → per-category `{ spent, limit, pct, over }` using current-month expenses; `groupBudget(group)`.
+- **Aset:** `netWorth()`, `assetsBreakdown()` → `{ walletsTotal, liquidTotal, fixedTotal }`, `avgMonthlyExpense(window=3)`, `runwayMonths()` = liquid (wallets + liquid assets) ÷ avgMonthlyExpense (N/A if 0) (Req 17).
+- **Utang:** `debtRemaining(id)`, `totalDebt()` (Req 18).
+- **Investasi:** `investmentGainLoss(id)`, `investTotals()` → `{ invested, current, gain, gainPct }` (Req 19).
+- **Laporan:** `monthlyReport(month)` reusing `selectMonthlySummary` + `selectSpendingByCategory`, plus `previousMonthComparison(month)` (percentage change, N/A when prior is 0) and `topExpenses(month, n)` (Req 20).
+- **Dashboard (Beranda):** `greeting(now)`, `dailyBudgetRemaining()`, `dailyNetSpend(month)` (day→net spend for the heatmap), and `recentTransactions(n)`; all other Dashboard data reuses the selectors above (Req 22). Kept thin — the Dashboard aggregates existing selectors rather than introducing new persistence.
+
+## View modules (new)
+
+- `src/views/wallets.js` — Dompet list + total saldo card; add/edit/delete wallet form (name, type, initial saldo). Credit balances shown as amount owed.
+- `src/views/beranda.js` — the **Dashboard** (built last, Req 22). Composed of small sections, each reading existing selectors so it stays a thin aggregation layer:
+  - **Greeting** — `greeting(now)` returns Selamat pagi/siang/sore/malam by hour (pagi <11, siang 11–14, sore 15–18, malam otherwise).
+  - **At-a-glance daily budget** — `dailyBudgetRemaining()` = (total monthly budget − month-to-date expenses) ÷ remaining days in month (including today). N/A if no budget set or remaining days = 0 (Req 22.3).
+  - **Quick totals + progress bar** — reuses `selectMonthlySummary`; progress bar = expenses ÷ (budget or income), clamped 0–100%, over-budget tint (Req 22.4).
+  - **Calendar heatmap** — `dailyNetSpend(month)` → map of `day → net spend (expense−income)`; rendered as a month grid of cells whose intensity scales with that day's spend (inline CSS/SVG, no library). Neutral for zero-activity days (Req 22.5).
+  - **Recent transactions** — last 5–10 from the existing sorted list, linking into Transaksi (Req 22.6).
+  - **Period comparison** — reuses `previousMonthComparison` for income and expenses (Req 22.7).
+  - **Pengeluaran Terbesar** — reuses `topExpenses(month, n)`; each item tagged with its category's `budgetGroup` (Kebutuhan/Keinginan/Tabungan) via a small badge (Req 22.8).
+  - **Quick-access menu** — buttons to Atur Budget, Aset, Utang, Investasi, Laporan (Req 22.9).
+  - Total saldo (Req 14.3) shown up top; net worth/total debt optional as space allows (Req 22.11). The whole view re-renders on store change (Req 22.10).
+- `src/views/lainnya.js` — More hub linking secondary sections.
+- `src/views/budget.js` — income input, method toggle, 3 sliders (Kebutuhan/Keinginan/Tabungan) with live total + 100% guard, category→group assignment, per-category progress bars; fixed-amount inputs when method = fixed.
+- `src/views/assets.js` — net worth header, three-total breakdown, Total Runway, manual asset add/edit/delete.
+- `src/views/debts.js` — debt list with remaining + overall total; add/edit/delete; due-date + overdue indicator.
+- `src/views/investments.js` — holdings list with per-item and total gain/loss (abs + %); add/edit/delete.
+- `src/views/laporan.js` — monthly report: income/expense/net savings, % vs last month, category chart (reuse `chart.js`), Top Pengeluaran list.
+- **Transaksi** (`transactions.js`) extended: filter sheet (date range, wallet, category, type), search input, date-grouped rendering.
+- **Transaction form** (`transactionForm.js`) extended: wallet selector (defaults to last-used or "Tunai").
+- **Category manager** extended: optional budget-group assignment per category.
+
+Charts: extend `src/views/chart.js` — keep the donut for category spending; add a small horizontal **bar/progress** primitive for budget progress bars and a simple comparison indicator for Laporan. All inline SVG/CSS, no libraries.
+
+## Reused patterns & non-functionals
+
+- Reuse `modal.js` (forms/confirms), `dom.js` (`el`/`render`), and the subscribe/notify store loop; every new screen re-renders on store change.
+- Persistence, offline, and PWA behavior are unchanged and extended only by adding new module paths to the service-worker precache list (`sw.js` `APP_SHELL`).
+- Localization/currency are cross-cutting and land in Phase 1 before feature work, so every subsequent screen is authored in Indonesian with Rupiah from the start.
+- Testing approach (per project guidance, written only if requested): unit-test new selectors (wallet saldo, budget split & progress, net worth/runway, debt remaining, investment gain/loss, report comparison) and the date-grouping/advanced-filter logic, mirroring the existing Node-based selector tests.
+
+## Assumptions & open points
+
+- Wallet-to-wallet **transfers** are out of scope for this phase (Req 14.7 note); can be added later as a paired transaction type.
+- Percentage→per-category budget distribution uses **even split within each group** as the concrete rule for Req 16.7 (simplest predictable behavior); a per-category weight could be added later.
+- **Runway** counts liquid net worth (wallet saldo of non-credit types + Aset Likuid) ÷ average monthly expense over the last 3 months with data (Req 17.4).
+- Investment values are **manually entered** (no live price feeds), consistent with the offline, no-network design.
+- Rupiah shown without decimals; internal math uses whole-rupiah integers to avoid float rounding.
