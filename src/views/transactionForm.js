@@ -19,6 +19,13 @@ export function openTransactionForm(existing) {
   const isEdit = !!existing;
   const state = store.getState();
   const categories = state.categories;
+  const wallets = state.wallets;
+
+  // Default wallet: the transaction's own (edit), else last-used, else first.
+  const defaultWalletId =
+    (existing && existing.walletId) ||
+    state.lastWalletId ||
+    (wallets[0] ? wallets[0].id : '');
 
   // Working copy of form values.
   const form = {
@@ -27,6 +34,7 @@ export function openTransactionForm(existing) {
     categoryId: existing ? existing.categoryId : '',
     date: existing ? existing.date : todayISO(),
     note: existing && existing.note ? existing.note : '',
+    walletId: defaultWalletId,
   };
 
   /** @type {Record<string,string>} */
@@ -70,6 +78,23 @@ export function openTransactionForm(existing) {
       ]
     );
 
+    // Wallet select
+    const walletSelect = el(
+      'select',
+      {
+        class: errors.walletId ? 'invalid' : '',
+        onChange: (e) => (form.walletId = e.target.value),
+      },
+      [
+        wallets.length === 0
+          ? el('option', { value: '', selected: true }, t.wallet.selectWallet)
+          : null,
+        ...wallets.map((w) =>
+          el('option', { value: w.id, selected: w.id === form.walletId }, w.name)
+        ),
+      ]
+    );
+
     // Date
     const dateInput = el('input', {
       type: 'date',
@@ -89,6 +114,7 @@ export function openTransactionForm(existing) {
       field(t.tx.type, seg, errors.type),
       field(t.tx.amount, amountInput, errors.amount),
       field(t.tx.category, catSelect, errors.categoryId),
+      field(t.wallet.walletLabel, walletSelect, errors.walletId),
       field(t.tx.date, dateInput, errors.date),
       field(t.tx.note, noteInput),
       el('div', { class: 'btn-row' }, [
@@ -145,6 +171,7 @@ export function openTransactionForm(existing) {
       categoryId: form.categoryId,
       date: form.date,
       note: form.note.trim() || undefined,
+      walletId: form.walletId || undefined,
     };
     if (isEdit && existing) {
       await store.editTransaction(existing.id, payload);

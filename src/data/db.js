@@ -10,9 +10,13 @@
  */
 
 const DB_NAME = 'finance-tracker';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_TX = 'transactions';
 const STORE_CAT = 'categories';
+const STORE_WALLET = 'wallets';
+
+/** Stable id for the seeded default cash wallet (Req 21.2). */
+export const DEFAULT_WALLET_ID = 'tunai';
 
 /** Default categories seeded on first run (Req 5.1). Stable slug ids. */
 export const DEFAULT_CATEGORIES = /** @type {Category[]} */ ([
@@ -51,12 +55,17 @@ function openDB() {
     }
     req.onupgradeneeded = () => {
       const db = req.result;
+      // v1 stores
       if (!db.objectStoreNames.contains(STORE_TX)) {
         const tx = db.createObjectStore(STORE_TX, { keyPath: 'id' });
         tx.createIndex('by-date', 'date', { unique: false });
       }
       if (!db.objectStoreNames.contains(STORE_CAT)) {
         db.createObjectStore(STORE_CAT, { keyPath: 'id' });
+      }
+      // v2 stores (Req 21.3)
+      if (!db.objectStoreNames.contains(STORE_WALLET)) {
+        db.createObjectStore(STORE_WALLET, { keyPath: 'id' });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -159,6 +168,83 @@ export async function seedDefaultCategoriesIfEmpty() {
   }
 }
 
+// ---- Wallets --------------------------------------------------------------
+
+/** @returns {Promise<import('../types.js').Wallet[]>} */
+export async function getAllWallets() {
+  try {
+    const all = await run(STORE_WALLET, 'readonly', (s) => s.getAll());
+    return Array.isArray(all) ? all.filter(isValidWallet) : [];
+  } catch {
+    return []; // Safe fallback (Req 9.3)
+  }
+}
+
+/** @param {import('../types.js').Wallet} w @returns {Promise<void>} */
+export async function addWallet(w) {
+  await run(STORE_WALLET, 'readwrite', (s) => s.put(w));
+}
+
+/** @param {import('../types.js').Wallet} w @returns {Promise<void>} */
+export async function updateWallet(w) {
+  await run(STORE_WALLET, 'readwrite', (s) => s.put(w));
+}
+
+/** @param {string} id @returns {Promise<void>} */
+export async function deleteWallet(id) {
+  await run(STORE_WALLET, 'readwrite', (s) => s.delete(id));
+}
+
+/**
+ * Ensure a default cash wallet ("Tunai") exists and migrate any legacy
+ * transactions that have no walletId onto it (Req 21.1, 21.2). Never throws.
+ * @param {string} tunaiName - localized display name for the seeded wallet
+ * @returns {Promise<import('../types.js').Wallet[]>} the full wallet list
+ */
+export async function seedDefaultWalletAndMigrate(tunaiName) {
+  try {
+    let wallets = await getAllWallets();
+
+    // Seed the default cash wallet if there are none yet.
+    if (wallets.length === 0) {
+      /** @type {import('../types.js').Wallet} */
+      const tunai = {
+        id: DEFAULT_WALLET_ID,
+        name: tunaiName,
+        type: 'cash',
+        balance: 0,
+        createdAt: Date.now(),
+      };
+      await addWallet(tunai);
+      wallets = [tunai];
+    }
+
+    // Migrate legacy transactions with no walletId to the default wallet.
+    const txns = await getAllTransactions();
+    const orphans = txns.filter((t) => !t.walletId);
+    if (orphans.length > 0) {
+      const fallbackId =
+        (wallets.find((w) => w.id === DEFAULT_WALLET_ID) || wallets[0]).id;
+      for (const t of orphans) {
+        await updateTransaction({ ...t, walletId: fallbackId });
+      }
+    }
+
+    return wallets;
+  } catch {
+    // Fall back to an in-memory default so the app still works (Req 9.3).
+    return [
+      {
+        id: DEFAULT_WALLET_ID,
+        name: tunaiName,
+        type: 'cash',
+        balance: 0,
+        createdAt: Date.now(),
+      },
+    ];
+  }
+}
+
 // ---- Validation guards for corrupt records --------------------------------
 
 /** @param {any} t @returns {t is Transaction} */
@@ -177,4 +263,15 @@ function isValidTransaction(t) {
 /** @param {any} c @returns {c is Category} */
 function isValidCategory(c) {
   return c && typeof c.id === 'string' && typeof c.name === 'string';
+}
+
+/** @param {any} w @returns {w is import('../types.js').Wallet} */
+function isValidWallet(w) {
+  return (
+    w &&
+    typeof w.id === 'string' &&
+    typeof w.name === 'string' &&
+    typeof w.balance === 'number' &&
+    Number.isFinite(w.balance)
+  );
 }

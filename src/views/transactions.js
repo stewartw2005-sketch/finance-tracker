@@ -97,7 +97,10 @@ function transactionRow(tx) {
     : isYesterday(tx.date)
     ? t.tx.yesterday
     : formatDateLabel(tx.date);
-  const meta = [dayLabel, store.categoryName(tx.categoryId)].join(' · ');
+  const walletLabel = tx.walletId ? store.walletName(tx.walletId) : '';
+  const meta = [dayLabel, store.categoryName(tx.categoryId), walletLabel]
+    .filter(Boolean)
+    .join(' · ');
   return el('li', { class: 'tx-item' }, [
     el('div', { class: 'tx-main' }, [
       el('div', { class: 'tx-cat' }, store.categoryName(tx.categoryId)),

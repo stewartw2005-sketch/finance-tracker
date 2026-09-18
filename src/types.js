@@ -15,6 +15,22 @@
  * @property {string} date         - ISO 'YYYY-MM-DD' (local date, no time)
  * @property {string} [note]       - optional free text
  * @property {number} createdAt    - epoch ms, stable tiebreak for ordering
+ * @property {string} [walletId]   - FK -> Wallet.id (source/destination wallet)
+ */
+
+/**
+ * @typedef {'bank' | 'ewallet' | 'cash' | 'credit'} WalletType
+ */
+
+/**
+ * @typedef {Object} Wallet
+ * @property {string} id           - uuid; default cash wallet uses 'tunai'
+ * @property {string} name         - display name
+ * @property {WalletType} type     - bank | ewallet | cash | credit
+ * @property {number} balance      - INITIAL balance; displayed saldo is derived
+ *                                    (initial + income − expenses). May be
+ *                                    negative for credit-card wallets.
+ * @property {number} createdAt    - epoch ms
  */
 
 /**
