@@ -24,13 +24,15 @@
 
 /**
  * @typedef {Object} Wallet
- * @property {string} id           - uuid; default cash wallet uses 'tunai'
- * @property {string} name         - display name
- * @property {WalletType} type     - bank | ewallet | cash | credit
- * @property {number} balance      - INITIAL balance; displayed saldo is derived
- *                                    (initial + income − expenses). May be
- *                                    negative for credit-card wallets.
- * @property {number} createdAt    - epoch ms
+ * @property {string} id             - uuid; default cash wallet uses 'tunai'
+ * @property {string} name           - display name
+ * @property {WalletType} type       - bank | ewallet | cash | credit
+ * @property {number} balance        - INITIAL balance; displayed saldo is derived
+ *                                      (initial + income − expenses). May be
+ *                                      negative for credit-card wallets.
+ * @property {boolean} [isPrimary]   - the primary ("UTAMA") wallet; exactly one
+ * @property {string} [accountNumber]- optional account/rekening number
+ * @property {number} createdAt      - epoch ms
  */
 
 /**

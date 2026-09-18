@@ -11,6 +11,7 @@ import * as store from '../state/store.js';
 import { money } from '../lib/format.js';
 import { formatMonthLabel } from '../lib/dates.js';
 import { t } from '../lib/i18n.js';
+import { icon } from '../lib/icons.js';
 import { monthSelect } from './monthSelect.js';
 
 /**
@@ -21,10 +22,11 @@ export function renderBeranda(container) {
   const month = store.getState().selectedMonth;
   const summary = store.selectMonthlySummary(month);
   const total = store.totalSaldo();
+  const hidden = store.isSaldoHidden();
 
   container.append(
-    totalSaldoCard(total),
-    glanceCard(summary),
+    totalSaldoCard(total, hidden),
+    glanceCard(summary, hidden),
     el('div', { class: 'section-title' }, t.beranda.ringkasanBulan),
     el('label', { class: 'field', style: 'margin-bottom:16px' }, [
       el('span', { class: 'field-label' }, t.dashboard.month),
@@ -35,27 +37,39 @@ export function renderBeranda(container) {
 }
 
 /**
- * Total saldo across all wallets (Req 14.3, 22.11).
- * @param {number} total
+ * Total saldo across all wallets (Req 14.3, 22.11), with a privacy lock.
+ * @param {number} total @param {boolean} hidden
  * @returns {HTMLElement}
  */
-function totalSaldoCard(total) {
+function totalSaldoCard(total, hidden) {
   return el('div', { class: 'saldo-card' }, [
-    el('div', { class: 'saldo-label' }, t.wallet.totalSaldo),
+    el('div', { class: 'saldo-head' }, [
+      el('span', { class: 'saldo-label' }, t.wallet.totalSaldo),
+      el(
+        'button',
+        {
+          class: 'saldo-lock',
+          'aria-label': hidden ? t.wallet.showBalance : t.wallet.hideBalance,
+          'aria-pressed': hidden ? 'true' : 'false',
+          onClick: () => store.toggleSaldoHidden(),
+        },
+        icon(hidden ? 'lock' : 'unlock', { size: 18 })
+      ),
+    ]),
     el(
       'div',
       { class: 'saldo-value' + (total < 0 ? ' negative' : '') },
-      money(total)
+      hidden ? t.wallet.hidden : money(total)
     ),
   ]);
 }
 
 /**
- * "Sekilas Hari Ini" glance card (matches the requested design).
- * @param {import('../types.js').MonthlySummary} summary
+ * "Sekilas Hari Ini" glance card.
+ * @param {import('../types.js').MonthlySummary} summary @param {boolean} hidden
  * @returns {HTMLElement}
  */
-function glanceCard(summary) {
+function glanceCard(summary, hidden) {
   // Daily remaining budget becomes live in Phase 4 (needs budget data).
   const dailyRemaining = store.dailyBudgetRemaining
     ? store.dailyBudgetRemaining()
@@ -71,26 +85,35 @@ function glanceCard(summary) {
       : 0;
   const over = summary.totalIncome > 0 && summary.totalExpenses > summary.totalIncome;
 
+  const amountText = !hasBudget
+    ? t.beranda.budgetBelumDiatur
+    : hidden
+    ? t.wallet.hidden
+    : money(dailyRemaining);
+
   return el('div', { class: 'glance-card' }, [
-    // Header label with a spark icon
+    // Header label
     el('div', { class: 'glance-label' }, [
-      el('span', { 'aria-hidden': 'true' }, '⚡'),
       el('span', {}, t.beranda.sekilasHariIni),
     ]),
 
-    // Big daily-budget amount + lock icon
+    // Big daily-budget amount + privacy lock toggle
     el('div', { class: 'glance-amount-row' }, [
+      el('span', { class: 'glance-amount' + (hasBudget && !hidden ? '' : ' muted') }, amountText),
       el(
-        'span',
-        { class: 'glance-amount' + (hasBudget ? '' : ' muted') },
-        hasBudget ? money(dailyRemaining) : t.beranda.budgetBelumDiatur
+        'button',
+        {
+          class: 'saldo-lock',
+          'aria-label': hidden ? t.wallet.showBalance : t.wallet.hideBalance,
+          'aria-pressed': hidden ? 'true' : 'false',
+          onClick: () => store.toggleSaldoHidden(),
+        },
+        icon(hidden ? 'lock' : 'unlock', { size: 18 })
       ),
-      hasBudget ? el('span', { class: 'glance-lock', 'aria-hidden': 'true' }, '🔒') : null,
     ]),
 
     // Caption
     el('div', { class: 'glance-caption' }, [
-      el('span', { 'aria-hidden': 'true' }, '👆'),
       el('span', {}, t.beranda.budgetHarianTersisa),
     ]),
 
@@ -98,11 +121,11 @@ function glanceCard(summary) {
     el('div', { class: 'glance-io' }, [
       el('div', { class: 'glance-io-col' }, [
         el('div', { class: 'glance-io-label' }, t.beranda.pemasukan),
-        el('div', { class: 'glance-io-val income' }, money(summary.totalIncome)),
+        el('div', { class: 'glance-io-val income' }, hidden ? t.wallet.hidden : money(summary.totalIncome)),
       ]),
       el('div', { class: 'glance-io-col' }, [
         el('div', { class: 'glance-io-label' }, t.beranda.pengeluaran),
-        el('div', { class: 'glance-io-val expense' }, money(summary.totalExpenses)),
+        el('div', { class: 'glance-io-val expense' }, hidden ? t.wallet.hidden : money(summary.totalExpenses)),
       ]),
     ]),
 

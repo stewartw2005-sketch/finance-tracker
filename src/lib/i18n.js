@@ -66,6 +66,9 @@ export const t = {
   wallet: {
     defaultName: 'Tunai',
     totalSaldo: 'Total Saldo',
+    hideBalance: 'Sembunyikan saldo',
+    showBalance: 'Tampilkan saldo',
+    hidden: '••••••',
     yourWallets: 'Dompet Anda',
     addTitle: 'Tambah Dompet',
     editTitle: 'Ubah Dompet',
@@ -73,6 +76,11 @@ export const t = {
     namePlaceholder: 'mis. BCA, GoPay, Dompet',
     type: 'Jenis',
     initialBalance: 'Saldo awal',
+    accountNumber: 'Nomor rekening',
+    accountNumberPlaceholder: 'mis. 1234567890 (opsional)',
+    noAccountNumber: 'Belum ada nomor rekening',
+    copy: 'Salin',
+    copied: 'Tersalin!',
     owed: 'terutang',
     emptyTitle: 'Belum ada dompet.',
     emptyHint: 'Tambahkan rekening, e-wallet, atau tunai.',
@@ -84,9 +92,12 @@ export const t = {
     deleteTitle: 'Hapus dompet?',
     deleteMsg: (name, n) =>
       n > 0
-        ? `Hapus "${name}"? ${n} transaksi akan dipindahkan ke dompet Tunai.`
+        ? `Hapus "${name}"? ${n} transaksi akan dipindahkan ke dompet utama.`
         : `Hapus "${name}"?`,
-    defaultBadge: 'Utama',
+    cannotDeleteLast: 'Tidak bisa menghapus dompet terakhir.',
+    primaryBadge: 'UTAMA',
+    setPrimary: 'Jadikan Utama',
+    actionsAria: 'Aksi dompet',
     types: {
       bank: 'Bank',
       ewallet: 'E-Wallet',
