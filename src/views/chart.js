@@ -6,6 +6,7 @@
  */
 import { el } from '../lib/dom.js';
 import { money } from '../lib/format.js';
+import { t } from '../lib/i18n.js';
 
 /** Distinct, readable colors on a black background. */
 const PALETTE = [
@@ -23,7 +24,7 @@ export function spendingChart(data) {
   if (!data || data.length === 0) {
     return el('div', { class: 'empty' }, [
       el('span', { class: 'emoji', 'aria-hidden': 'true' }, '📈'),
-      el('div', {}, 'No expenses this month.'),
+      el('div', {}, t.chart.noExpenses),
     ]);
   }
 
@@ -40,7 +41,7 @@ export function spendingChart(data) {
   svg.setAttribute('width', String(size));
   svg.setAttribute('height', String(size));
   svg.setAttribute('role', 'img');
-  svg.setAttribute('aria-label', 'Spending by category');
+  svg.setAttribute('aria-label', t.chart.ariaLabel);
 
   // Single-slice case: draw a full ring instead of a degenerate arc.
   if (data.length === 1) {
@@ -71,7 +72,7 @@ export function spendingChart(data) {
 
   // Center total label
   const centerLabel = el('div', { class: 'chart-center' }, [
-    el('div', { style: 'font-size:0.72rem;color:var(--text-muted)' }, 'Spent'),
+    el('div', { style: 'font-size:0.72rem;color:var(--text-muted)' }, t.chart.spent),
     el('div', { style: 'font-size:1.05rem;font-weight:650' }, money(total)),
   ]);
 

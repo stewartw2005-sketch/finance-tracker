@@ -4,6 +4,8 @@
  * @typedef {import('../types.js').Category} Category
  */
 import { isValidISODate } from './dates.js';
+import { parseAmount } from './format.js';
+import { t } from './i18n.js';
 
 /**
  * @typedef {Object} TxInput
@@ -26,34 +28,34 @@ export function validateTransaction(input, categories) {
   const errors = {};
 
   const amountNum =
-    typeof input.amount === 'number' ? input.amount : parseFloat(input.amount);
+    typeof input.amount === 'number' ? input.amount : parseAmount(input.amount);
   if (
     input.amount === '' ||
     input.amount === null ||
     input.amount === undefined ||
     Number.isNaN(amountNum)
   ) {
-    errors.amount = 'Enter an amount.';
+    errors.amount = t.validation.amountRequired;
   } else if (!Number.isFinite(amountNum) || amountNum <= 0) {
-    errors.amount = 'Amount must be a positive number.';
+    errors.amount = t.validation.amountPositive;
   }
 
   if (input.type !== 'income' && input.type !== 'expense') {
-    errors.type = 'Select income or expense.';
+    errors.type = t.validation.typeRequired;
   }
 
   if (!input.categoryId) {
-    errors.categoryId = 'Select a category.';
+    errors.categoryId = t.validation.categoryRequired;
   } else if (
     Array.isArray(categories) &&
     categories.length > 0 &&
     !categories.some((c) => c.id === input.categoryId)
   ) {
-    errors.categoryId = 'Select a valid category.';
+    errors.categoryId = t.validation.categoryInvalid;
   }
 
   if (!input.date || !isValidISODate(input.date)) {
-    errors.date = 'Enter a valid date.';
+    errors.date = t.validation.dateInvalid;
   }
 
   return errors;

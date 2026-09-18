@@ -1,7 +1,8 @@
 {
-  "name": "Personal Finance Tracker",
-  "short_name": "Finances",
-  "description": "A private, offline personal finance tracker for income, expenses, and monthly insights.",
+  "name": "Pelacak Keuangan",
+  "short_name": "Keuangan",
+  "description": "Pelacak keuangan pribadi yang privat dan bisa offline untuk pemasukan, pengeluaran, dan ringkasan bulanan.",
+  "lang": "id",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
