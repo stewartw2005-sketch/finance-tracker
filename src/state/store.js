@@ -10,9 +10,19 @@
  * @typedef {import('../types.js').CategorySpend} CategorySpend
  */
 import * as db from '../data/db.js';
-import { currentMonth, monthOf } from '../lib/dates.js';
+import { currentMonth, monthOf, isToday, isYesterday, formatDateLabel } from '../lib/dates.js';
 import { makeId } from '../lib/validation.js';
 import { t } from '../lib/i18n.js';
+
+/**
+ * @typedef {Object} TxFilters
+ * @property {string} from       - ISO date lower bound (inclusive) or ''
+ * @property {string} to         - ISO date upper bound (inclusive) or ''
+ * @property {string} walletId   - wallet id or '' for all
+ * @property {string} categoryId - category id or '' for all
+ * @property {string} type       - 'income' | 'expense' | '' for all
+ * @property {string} search     - note/description search (case-insensitive)
+ */
 
 /**
  * @typedef {Object} State
@@ -21,6 +31,7 @@ import { t } from '../lib/i18n.js';
  * @property {import('../types.js').Wallet[]} wallets
  * @property {string} selectedMonth   - 'YYYY-MM'
  * @property {string} filterCategory  - category id or '' for all
+ * @property {TxFilters} txFilters    - advanced Transaksi filters + search
  * @property {string} lastWalletId    - last wallet used on a transaction
  * @property {boolean} saldoHidden    - hide balances for privacy (display only)
  * @property {boolean} loaded
@@ -43,6 +54,7 @@ const state = {
   wallets: [],
   selectedMonth: currentMonth(),
   filterCategory: '',
+  txFilters: { from: '', to: '', walletId: '', categoryId: '', type: '', search: '' },
   lastWalletId: '',
   saldoHidden: initialSaldoHidden(),
   loaded: false,
@@ -369,6 +381,45 @@ export function clearFilters() {
   notify();
 }
 
+// ---- Advanced Transaksi filters + search (Req 15) -------------------------
+
+/**
+ * Merge changes into the advanced Transaksi filters.
+ * @param {Partial<TxFilters>} patch
+ */
+export function setTxFilters(patch) {
+  state.txFilters = { ...state.txFilters, ...patch };
+  notify();
+}
+
+/** Set the note/description search query. @param {string} query */
+export function setTxSearch(query) {
+  state.txFilters = { ...state.txFilters, search: query };
+  notify();
+}
+
+/** Reset all advanced Transaksi filters and search. */
+export function clearTxFilters() {
+  state.txFilters = { from: '', to: '', walletId: '', categoryId: '', type: '', search: '' };
+  notify();
+}
+
+/**
+ * Count how many advanced filters are active (excludes search, which has its
+ * own visible input). Used to badge the filter button.
+ * @returns {number}
+ */
+export function activeFilterCount() {
+  const f = state.txFilters;
+  let n = 0;
+  if (f.from) n++;
+  if (f.to) n++;
+  if (f.walletId) n++;
+  if (f.categoryId) n++;
+  if (f.type) n++;
+  return n;
+}
+
 /** @param {string} msg */
 export function setError(msg) {
   state.error = msg;
@@ -407,6 +458,65 @@ export function selectFilteredTransactions(opts = {}) {
   if (month) list = list.filter((t) => monthOf(t.date) === month);
   if (categoryId) list = list.filter((t) => t.categoryId === categoryId);
   return sortRecent(list);
+}
+
+/**
+ * Advanced Transaksi selector: date range + wallet + category + type filters
+ * (logical AND) plus a case-insensitive note/description search. Returns the
+ * matching transactions sorted most-recent-first (Req 15.1–15.4).
+ * @param {Partial<TxFilters>} [override] - defaults to the store's txFilters
+ * @returns {Transaction[]}
+ */
+export function selectTransactionsAdvanced(override) {
+  const f = { ...state.txFilters, ...(override || {}) };
+  const search = (f.search || '').trim().toLowerCase();
+  let list = state.transactions;
+
+  if (f.from) list = list.filter((t) => t.date >= f.from);
+  if (f.to) list = list.filter((t) => t.date <= f.to);
+  if (f.walletId) list = list.filter((t) => t.walletId === f.walletId);
+  if (f.categoryId) list = list.filter((t) => t.categoryId === f.categoryId);
+  if (f.type) list = list.filter((t) => t.type === f.type);
+  if (search) {
+    list = list.filter((t) => (t.note || '').toLowerCase().includes(search));
+  }
+  return sortRecent(list);
+}
+
+/**
+ * Group a sorted transaction list into date sections with Indonesian headings:
+ * "Hari Ini", "Kemarin", then a formatted date. Groups preserve the incoming
+ * (most-recent-first) order (Req 15.5).
+ * @param {Transaction[]} list - expected already sorted most-recent-first
+ * @returns {{ key: string, label: string, items: Transaction[] }[]}
+ */
+export function groupByDate(list) {
+  /** @type {{ key: string, label: string, items: Transaction[] }[]} */
+  const groups = [];
+  /** @type {Map<string, number>} */
+  const index = new Map();
+  for (const tx of list) {
+    const key = tx.date;
+    let gi = index.get(key);
+    if (gi === undefined) {
+      gi = groups.length;
+      index.set(key, gi);
+      groups.push({ key, label: dateGroupLabel(key), items: [] });
+    }
+    groups[gi].items.push(tx);
+  }
+  return groups;
+}
+
+/**
+ * Heading for a date group.
+ * @param {string} isoDate
+ * @returns {string}
+ */
+function dateGroupLabel(isoDate) {
+  if (isToday(isoDate)) return t.tx.today;
+  if (isYesterday(isoDate)) return t.tx.yesterday;
+  return formatDateLabel(isoDate);
 }
 
 /**

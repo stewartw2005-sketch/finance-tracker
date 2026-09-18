@@ -164,6 +164,21 @@ export const t = {
     // date groups
     today: 'Hari Ini',
     yesterday: 'Kemarin',
+    // search + filters
+    searchPlaceholder: 'Cari catatan…',
+    searchAria: 'Cari transaksi',
+    filterButton: 'Filter',
+    filterTitle: 'Filter Transaksi',
+    dateFrom: 'Dari tanggal',
+    dateTo: 'Sampai tanggal',
+    filterWallet: 'Dompet',
+    filterType: 'Jenis',
+    allWallets: 'Semua dompet',
+    allTypes: 'Semua jenis',
+    applyFilters: 'Terapkan',
+    resetFilters: 'Atur ulang',
+    activeFilters: (n) => `${n} filter aktif`,
+    resultCount: (n) => `${n} transaksi`,
   },
 
   validation: {
