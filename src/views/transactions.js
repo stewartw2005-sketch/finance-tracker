@@ -5,7 +5,7 @@
  */
 import { el } from '../lib/dom.js';
 import * as store from '../state/store.js';
-import { formatMonthLabel, formatDateLabel } from '../lib/dates.js';
+import { formatMonthLabel, formatDateLabel, isToday, isYesterday } from '../lib/dates.js';
 import { signedMoney } from '../lib/format.js';
 import { t, typeLabel } from '../lib/i18n.js';
 import { monthSelect } from './monthSelect.js';
@@ -92,7 +92,12 @@ export function renderTransactions(container) {
  * @returns {HTMLElement}
  */
 function transactionRow(tx) {
-  const meta = [formatDateLabel(tx.date), store.categoryName(tx.categoryId)].join(' · ');
+  const dayLabel = isToday(tx.date)
+    ? t.tx.today
+    : isYesterday(tx.date)
+    ? t.tx.yesterday
+    : formatDateLabel(tx.date);
+  const meta = [dayLabel, store.categoryName(tx.categoryId)].join(' · ');
   return el('li', { class: 'tx-item' }, [
     el('div', { class: 'tx-main' }, [
       el('div', { class: 'tx-cat' }, store.categoryName(tx.categoryId)),

@@ -1,8 +1,10 @@
 // @ts-check
 /**
- * Beranda (home) — placeholder for Phase 1. Shows the current month's
- * income/expenses/net summary. The full Dashboard (greeting, daily budget,
- * calendar heatmap, etc.) is built in Phase 9 once its data sources exist.
+ * Beranda (home). Phase 1 gave a basic month summary; this adds the
+ * "Sekilas Hari Ini" glance card (budget harian yang tersisa + income/expense
+ * with a progress bar). The daily-budget figure becomes live once budgets
+ * exist (Phase 4); until then it shows a friendly fallback. The full Dashboard
+ * (greeting, calendar heatmap, etc.) arrives in Phase 9.
  */
 import { el } from '../lib/dom.js';
 import * as store from '../state/store.js';
@@ -18,14 +20,94 @@ import { monthSelect } from './monthSelect.js';
 export function renderBeranda(container) {
   const month = store.getState().selectedMonth;
   const summary = store.selectMonthlySummary(month);
-  const netClass = summary.net < 0 ? 'negative' : summary.net > 0 ? 'positive' : '';
 
-  const monthRow = el('label', { class: 'field', style: 'margin-bottom:16px' }, [
-    el('span', { class: 'field-label' }, t.dashboard.month),
-    monthSelect(),
+  container.append(
+    glanceCard(summary),
+    el('div', { class: 'section-title' }, t.beranda.ringkasanBulan),
+    el('label', { class: 'field', style: 'margin-bottom:16px' }, [
+      el('span', { class: 'field-label' }, t.dashboard.month),
+      monthSelect(),
+    ]),
+    monthSummaryGrid(month, summary)
+  );
+}
+
+/**
+ * "Sekilas Hari Ini" glance card (matches the requested design).
+ * @param {import('../types.js').MonthlySummary} summary
+ * @returns {HTMLElement}
+ */
+function glanceCard(summary) {
+  // Daily remaining budget becomes live in Phase 4 (needs budget data).
+  const dailyRemaining = store.dailyBudgetRemaining
+    ? store.dailyBudgetRemaining()
+    : null;
+  const hasBudget = dailyRemaining != null && Number.isFinite(dailyRemaining);
+
+  // Progress: expenses relative to income for the month (clamped 0–100%).
+  const ratio =
+    summary.totalIncome > 0
+      ? Math.min(1, summary.totalExpenses / summary.totalIncome)
+      : summary.totalExpenses > 0
+      ? 1
+      : 0;
+  const over = summary.totalIncome > 0 && summary.totalExpenses > summary.totalIncome;
+
+  return el('div', { class: 'glance-card' }, [
+    // Header label with a spark icon
+    el('div', { class: 'glance-label' }, [
+      el('span', { 'aria-hidden': 'true' }, '⚡'),
+      el('span', {}, t.beranda.sekilasHariIni),
+    ]),
+
+    // Big daily-budget amount + lock icon
+    el('div', { class: 'glance-amount-row' }, [
+      el(
+        'span',
+        { class: 'glance-amount' + (hasBudget ? '' : ' muted') },
+        hasBudget ? money(dailyRemaining) : t.beranda.budgetBelumDiatur
+      ),
+      hasBudget ? el('span', { class: 'glance-lock', 'aria-hidden': 'true' }, '🔒') : null,
+    ]),
+
+    // Caption
+    el('div', { class: 'glance-caption' }, [
+      el('span', { 'aria-hidden': 'true' }, '👆'),
+      el('span', {}, t.beranda.budgetHarianTersisa),
+    ]),
+
+    // Income / expense columns
+    el('div', { class: 'glance-io' }, [
+      el('div', { class: 'glance-io-col' }, [
+        el('div', { class: 'glance-io-label' }, t.beranda.pemasukan),
+        el('div', { class: 'glance-io-val income' }, money(summary.totalIncome)),
+      ]),
+      el('div', { class: 'glance-io-col' }, [
+        el('div', { class: 'glance-io-label' }, t.beranda.pengeluaran),
+        el('div', { class: 'glance-io-val expense' }, money(summary.totalExpenses)),
+      ]),
+    ]),
+
+    // Progress bar
+    el(
+      'div',
+      { class: 'glance-progress', role: 'progressbar' },
+      el('div', {
+        class: 'glance-progress-fill' + (over ? ' over' : ''),
+        style: `width:${Math.round(ratio * 100)}%`,
+      })
+    ),
   ]);
+}
 
-  const summaryGrid = el('div', { class: 'summary-grid' }, [
+/**
+ * @param {string} month
+ * @param {import('../types.js').MonthlySummary} summary
+ * @returns {HTMLElement}
+ */
+function monthSummaryGrid(month, summary) {
+  const netClass = summary.net < 0 ? 'negative' : summary.net > 0 ? 'positive' : '';
+  return el('div', { class: 'summary-grid' }, [
     summaryCard(t.dashboard.income, money(summary.totalIncome), 'income'),
     summaryCard(t.dashboard.expenses, money(summary.totalExpenses), 'expense'),
     el('div', { class: 'summary-card net' }, [
@@ -33,12 +115,6 @@ export function renderBeranda(container) {
       el('div', { class: 'value ' + netClass }, money(summary.net)),
     ]),
   ]);
-
-  container.append(
-    el('div', { class: 'section-title' }, t.beranda.ringkasanBulan),
-    monthRow,
-    summaryGrid
-  );
 }
 
 /**
