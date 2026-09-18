@@ -20,8 +20,10 @@ import { monthSelect } from './monthSelect.js';
 export function renderBeranda(container) {
   const month = store.getState().selectedMonth;
   const summary = store.selectMonthlySummary(month);
+  const total = store.totalSaldo();
 
   container.append(
+    totalSaldoCard(total),
     glanceCard(summary),
     el('div', { class: 'section-title' }, t.beranda.ringkasanBulan),
     el('label', { class: 'field', style: 'margin-bottom:16px' }, [
@@ -30,6 +32,22 @@ export function renderBeranda(container) {
     ]),
     monthSummaryGrid(month, summary)
   );
+}
+
+/**
+ * Total saldo across all wallets (Req 14.3, 22.11).
+ * @param {number} total
+ * @returns {HTMLElement}
+ */
+function totalSaldoCard(total) {
+  return el('div', { class: 'saldo-card' }, [
+    el('div', { class: 'saldo-label' }, t.wallet.totalSaldo),
+    el(
+      'div',
+      { class: 'saldo-value' + (total < 0 ? ' negative' : '') },
+      money(total)
+    ),
+  ]);
 }
 
 /**

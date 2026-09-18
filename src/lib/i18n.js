@@ -63,6 +63,50 @@ export const t = {
     placeholderHint: 'Kelola rekening bank, e-wallet, tunai, dan kartu kredit di sini.',
   },
 
+  wallet: {
+    defaultName: 'Tunai',
+    totalSaldo: 'Total Saldo',
+    yourWallets: 'Dompet Anda',
+    addTitle: 'Tambah Dompet',
+    editTitle: 'Ubah Dompet',
+    name: 'Nama',
+    namePlaceholder: 'mis. BCA, GoPay, Dompet',
+    type: 'Jenis',
+    initialBalance: 'Saldo awal',
+    owed: 'terutang',
+    emptyTitle: 'Belum ada dompet.',
+    emptyHint: 'Tambahkan rekening, e-wallet, atau tunai.',
+    addButton: 'Tambah Dompet',
+    selectWallet: 'Pilih dompet…',
+    walletLabel: 'Dompet',
+    nameRequired: 'Masukkan nama dompet.',
+    balanceInvalid: 'Masukkan saldo yang valid.',
+    deleteTitle: 'Hapus dompet?',
+    deleteMsg: (name, n) =>
+      n > 0
+        ? `Hapus "${name}"? ${n} transaksi akan dipindahkan ke dompet Tunai.`
+        : `Hapus "${name}"?`,
+    defaultBadge: 'Utama',
+    types: {
+      bank: 'Bank',
+      ewallet: 'E-Wallet',
+      cash: 'Tunai',
+      credit: 'Kartu Kredit',
+    },
+  },
+
+  errors: {
+    loadFailed: 'Gagal memuat data tersimpan; memulai dari awal.',
+    txSaveFailed: 'Gagal menyimpan transaksi.',
+    txUpdateFailed: 'Gagal memperbarui transaksi.',
+    txDeleteFailed: 'Gagal menghapus transaksi.',
+    categorySaveFailed: 'Gagal menyimpan kategori.',
+    categoryDeleteFailed: 'Gagal menghapus kategori.',
+    walletSaveFailed: 'Gagal menyimpan dompet.',
+    walletUpdateFailed: 'Gagal memperbarui dompet.',
+    walletDeleteFailed: 'Gagal menghapus dompet.',
+  },
+
   dashboard: {
     month: 'Bulan',
     income: 'Pemasukan',

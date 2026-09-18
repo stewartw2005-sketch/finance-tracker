@@ -18,8 +18,10 @@ import { t } from '../lib/i18n.js';
  * @typedef {Object} State
  * @property {Transaction[]} transactions
  * @property {Category[]} categories
+ * @property {import('../types.js').Wallet[]} wallets
  * @property {string} selectedMonth   - 'YYYY-MM'
  * @property {string} filterCategory  - category id or '' for all
+ * @property {string} lastWalletId    - last wallet used on a transaction
  * @property {boolean} loaded
  * @property {string} error           - non-blocking error message ('' if none)
  */
@@ -28,8 +30,10 @@ import { t } from '../lib/i18n.js';
 const state = {
   transactions: [],
   categories: [],
+  wallets: [],
   selectedMonth: currentMonth(),
   filterCategory: '',
+  lastWalletId: '',
   loaded: false,
   error: '',
 };
@@ -63,14 +67,21 @@ export function getState() {
 export async function init() {
   try {
     const categories = await db.seedDefaultCategoriesIfEmpty();
+    // Seed the default "Tunai" wallet and migrate legacy transactions, then
+    // load transactions (post-migration so walletId is populated).
+    const wallets = await db.seedDefaultWalletAndMigrate(t.wallet.defaultName);
     const transactions = await db.getAllTransactions();
     state.categories = categories;
+    state.wallets = wallets;
     state.transactions = transactions;
+    state.lastWalletId =
+      (wallets.find((w) => w.id === db.DEFAULT_WALLET_ID) || wallets[0] || {}).id || '';
   } catch {
     // Fall back to defaults so the app still renders.
     state.categories = db.DEFAULT_CATEGORIES.slice();
+    state.wallets = [];
     state.transactions = [];
-    state.error = 'Could not load saved data; starting fresh.';
+    state.error = t.errors.loadFailed;
   } finally {
     state.loaded = true;
     notify();
@@ -80,7 +91,7 @@ export async function init() {
 // ---- Mutations (write-through) --------------------------------------------
 
 /**
- * @param {{amount:number, type:import('../types.js').TxType, categoryId:string, date:string, note?:string}} data
+ * @param {{amount:number, type:import('../types.js').TxType, categoryId:string, date:string, note?:string, walletId?:string}} data
  * @returns {Promise<void>}
  */
 export async function addTransaction(data) {
@@ -92,24 +103,26 @@ export async function addTransaction(data) {
     categoryId: data.categoryId,
     date: data.date,
     note: data.note ? data.note : undefined,
+    walletId: data.walletId || undefined,
     createdAt: Date.now(),
   };
   state.transactions.push(txn);
+  if (txn.walletId) state.lastWalletId = txn.walletId;
   notify();
   try {
     await db.addTransaction(txn);
   } catch {
-    setError('Could not save the transaction to storage.');
+    setError(t.errors.txSaveFailed);
   }
 }
 
 /**
  * @param {string} id
- * @param {{amount:number, type:import('../types.js').TxType, categoryId:string, date:string, note?:string}} data
+ * @param {{amount:number, type:import('../types.js').TxType, categoryId:string, date:string, note?:string, walletId?:string}} data
  * @returns {Promise<void>}
  */
 export async function editTransaction(id, data) {
-  const idx = state.transactions.findIndex((t) => t.id === id);
+  const idx = state.transactions.findIndex((tx) => tx.id === id);
   if (idx === -1) return;
   const existing = state.transactions[idx];
   /** @type {Transaction} */
@@ -120,13 +133,15 @@ export async function editTransaction(id, data) {
     categoryId: data.categoryId,
     date: data.date,
     note: data.note ? data.note : undefined,
+    walletId: data.walletId || existing.walletId,
   };
   state.transactions[idx] = updated;
+  if (updated.walletId) state.lastWalletId = updated.walletId;
   notify();
   try {
     await db.updateTransaction(updated);
   } catch {
-    setError('Could not update the transaction in storage.');
+    setError(t.errors.txUpdateFailed);
   }
 }
 
@@ -135,12 +150,12 @@ export async function editTransaction(id, data) {
  * @returns {Promise<void>}
  */
 export async function removeTransaction(id) {
-  state.transactions = state.transactions.filter((t) => t.id !== id);
+  state.transactions = state.transactions.filter((tx) => tx.id !== id);
   notify();
   try {
     await db.deleteTransaction(id);
   } catch {
-    setError('Could not delete the transaction from storage.');
+    setError(t.errors.txDeleteFailed);
   }
 }
 
@@ -157,7 +172,7 @@ export async function addCategory(name) {
   try {
     await db.addCategory(cat);
   } catch {
-    setError('Could not save the category to storage.');
+    setError(t.errors.categorySaveFailed);
   }
   return cat;
 }
@@ -175,7 +190,90 @@ export async function removeCategory(id) {
   try {
     await db.deleteCategory(id);
   } catch {
-    setError('Could not delete the category from storage.');
+    setError(t.errors.categoryDeleteFailed);
+  }
+}
+
+// ---- Wallet mutations -----------------------------------------------------
+
+/**
+ * Add a wallet (Req 14.1).
+ * @param {{name:string, type:import('../types.js').WalletType, balance:number}} data
+ * @returns {Promise<import('../types.js').Wallet>}
+ */
+export async function addWallet(data) {
+  /** @type {import('../types.js').Wallet} */
+  const wallet = {
+    id: makeId(),
+    name: data.name.trim(),
+    type: data.type,
+    balance: data.balance,
+    createdAt: Date.now(),
+  };
+  state.wallets.push(wallet);
+  notify();
+  try {
+    await db.addWallet(wallet);
+  } catch {
+    setError(t.errors.walletSaveFailed);
+  }
+  return wallet;
+}
+
+/**
+ * Edit a wallet's name/type/initial balance.
+ * @param {string} id
+ * @param {{name:string, type:import('../types.js').WalletType, balance:number}} data
+ * @returns {Promise<void>}
+ */
+export async function editWallet(id, data) {
+  const idx = state.wallets.findIndex((w) => w.id === id);
+  if (idx === -1) return;
+  /** @type {import('../types.js').Wallet} */
+  const updated = {
+    ...state.wallets[idx],
+    name: data.name.trim(),
+    type: data.type,
+    balance: data.balance,
+  };
+  state.wallets[idx] = updated;
+  notify();
+  try {
+    await db.updateWallet(updated);
+  } catch {
+    setError(t.errors.walletUpdateFailed);
+  }
+}
+
+/**
+ * Delete a wallet. Linked transactions are reassigned to the default "Tunai"
+ * wallet to preserve totals (Req 14.6, 21.2). The default wallet itself is
+ * protected from deletion.
+ * @param {string} id
+ * @returns {Promise<void>}
+ */
+export async function removeWallet(id) {
+  if (id === db.DEFAULT_WALLET_ID) return;
+  const exists = state.wallets.some((w) => w.id === id);
+  if (!exists) return;
+
+  // Reassign linked transactions to the default wallet (fallback: first).
+  const fallback =
+    state.wallets.find((w) => w.id === db.DEFAULT_WALLET_ID) ||
+    state.wallets.find((w) => w.id !== id);
+  const fallbackId = fallback ? fallback.id : undefined;
+  const affected = state.transactions.filter((tx) => tx.walletId === id);
+  for (const tx of affected) {
+    tx.walletId = fallbackId;
+  }
+
+  state.wallets = state.wallets.filter((w) => w.id !== id);
+  notify();
+  try {
+    for (const tx of affected) await db.updateTransaction(tx);
+    await db.deleteWallet(id);
+  } catch {
+    setError(t.errors.walletDeleteFailed);
   }
 }
 
@@ -331,4 +429,64 @@ export function selectAvailableMonths() {
   return Array.from(set)
     .filter(Boolean)
     .sort((a, b) => (a < b ? 1 : -1));
+}
+
+
+// ---- Wallet selectors -----------------------------------------------------
+
+/**
+ * Look up a wallet by id.
+ * @param {string} id
+ * @returns {import('../types.js').Wallet | undefined}
+ */
+export function walletById(id) {
+  return state.wallets.find((w) => w.id === id);
+}
+
+/**
+ * Display name for a wallet id (falls back gracefully).
+ * @param {string} id
+ * @returns {string}
+ */
+export function walletName(id) {
+  const w = walletById(id);
+  return w ? w.name : '';
+}
+
+/**
+ * Derived saldo for a wallet: initial balance + all income to it − all
+ * expenses from it, across all time (Req 14.8). Keeps balances drift-free.
+ * @param {string} id
+ * @returns {number}
+ */
+export function walletSaldo(id) {
+  const w = walletById(id);
+  if (!w) return 0;
+  let saldo = w.balance;
+  for (const tx of state.transactions) {
+    if (tx.walletId !== id) continue;
+    if (tx.type === 'income') saldo += tx.amount;
+    else saldo -= tx.amount;
+  }
+  return saldo;
+}
+
+/**
+ * Total saldo across all wallets. Credit-card wallets that are negative
+ * subtract from the total (Req 14.3, 14.4).
+ * @returns {number}
+ */
+export function totalSaldo() {
+  return state.wallets.reduce((sum, w) => sum + walletSaldo(w.id), 0);
+}
+
+/**
+ * Wallets with their derived saldo, in creation order.
+ * @returns {{ wallet: import('../types.js').Wallet, saldo: number }[]}
+ */
+export function walletsWithSaldo() {
+  return state.wallets
+    .slice()
+    .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
+    .map((w) => ({ wallet: w, saldo: walletSaldo(w.id) }));
 }
