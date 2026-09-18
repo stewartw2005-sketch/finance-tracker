@@ -70,6 +70,36 @@ export function formatDateLabel(isoDate) {
 }
 
 /**
+ * Indonesian date label including the day name, e.g. '2026-09-18' ->
+ * 'Jumat, 18 Sep 2026'. Used in the transaction list ("hari").
+ * @param {string} isoDate
+ * @returns {string}
+ */
+export function formatDateWithDay(isoDate) {
+  const [y, m, d] = (isoDate || '').split('-').map(Number);
+  if (!y || !m || !d) return isoDate || '';
+  const date = new Date(y, m - 1, d);
+  return date.toLocaleDateString(locale, {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+/**
+ * Just the Indonesian weekday name for a date, e.g. 'Jumat'.
+ * @param {string} isoDate
+ * @returns {string}
+ */
+export function dayName(isoDate) {
+  const [y, m, d] = (isoDate || '').split('-').map(Number);
+  if (!y || !m || !d) return '';
+  const date = new Date(y, m - 1, d);
+  return date.toLocaleDateString(locale, { weekday: 'long' });
+}
+
+/**
  * True if the ISO date is today (local time).
  * @param {string} isoDate
  * @returns {boolean}

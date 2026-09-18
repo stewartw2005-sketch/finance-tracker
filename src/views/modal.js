@@ -1,6 +1,7 @@
 // @ts-check
 /** Reusable modal + confirm dialog. Framework-free. */
 import { el } from '../lib/dom.js';
+import { t } from '../lib/i18n.js';
 
 /** @type {HTMLElement|null} */
 let currentBackdrop = null;
@@ -15,8 +16,22 @@ let currentBackdrop = null;
 export function openModal(title, content) {
   closeModal(); // only one at a time
 
-  const modal = el('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true' }, [
+  const header = el('div', { class: 'modal-header' }, [
     el('h2', {}, title),
+    el(
+      'button',
+      {
+        class: 'modal-close',
+        type: 'button',
+        'aria-label': t.app.close,
+        onClick: () => closeModal(),
+      },
+      '✕'
+    ),
+  ]);
+
+  const modal = el('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true' }, [
+    header,
     content,
   ]);
 
@@ -69,11 +84,11 @@ export function closeModal() {
  * @param {string} [opts.confirmLabel]
  * @param {boolean} [opts.danger]
  */
-export function confirmDialog({ title, message, onConfirm, confirmLabel = 'Confirm', danger = true }) {
+export function confirmDialog({ title, message, onConfirm, confirmLabel, danger = true }) {
   const content = el('div', { class: 'stack' }, [
     el('p', { style: 'margin:0;color:var(--text-muted)' }, message),
     el('div', { class: 'btn-row' }, [
-      el('button', { class: 'btn ghost', onClick: () => closeModal() }, 'Cancel'),
+      el('button', { class: 'btn ghost', onClick: () => closeModal() }, t.app.cancel),
       el(
         'button',
         {
@@ -83,7 +98,7 @@ export function confirmDialog({ title, message, onConfirm, confirmLabel = 'Confi
             onConfirm();
           },
         },
-        confirmLabel
+        confirmLabel || t.app.confirm
       ),
     ]),
   ]);

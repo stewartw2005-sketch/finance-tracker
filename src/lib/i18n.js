@@ -15,6 +15,8 @@ export const t = {
     loading: 'Memuat…',
     dismiss: 'Tutup',
     cancel: 'Batal',
+    confirm: 'Konfirmasi',
+    close: 'Tutup',
     save: 'Simpan',
     add: 'Tambah',
     delete: 'Hapus',
@@ -49,6 +51,11 @@ export const t = {
     totalSaldo: 'Total Saldo',
     ringkasanBulan: 'Ringkasan Bulan Ini',
     comingSoon: 'Fitur lain akan hadir di sini.',
+    sekilasHariIni: 'Sekilas Hari Ini',
+    budgetHarianTersisa: 'budget harian yang tersisa',
+    pemasukan: 'PEMASUKAN',
+    pengeluaran: 'PENGELUARAN',
+    budgetBelumDiatur: 'Atur budget untuk melihat sisa harian',
   },
 
   dompet: {

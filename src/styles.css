@@ -715,3 +715,141 @@ textarea.invalid {
   font-size: 1.4rem;
   line-height: 1;
 }
+
+
+/* ---- Beranda "Sekilas Hari Ini" glance card ---------------- */
+
+.glance-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  margin-bottom: 8px;
+}
+
+.glance-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.glance-amount-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.glance-amount {
+  font-size: 2rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.glance-amount.muted {
+  font-size: 1.05rem;
+  font-weight: 550;
+  color: var(--text-muted);
+}
+
+.glance-lock {
+  font-size: 1rem;
+  opacity: 0.7;
+}
+
+.glance-caption {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin-top: 6px;
+}
+
+.glance-io {
+  display: flex;
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.glance-io-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.glance-io-label {
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 3px;
+}
+
+.glance-io-val {
+  font-size: 1.05rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.glance-io-val.income {
+  color: var(--income);
+}
+.glance-io-val.expense {
+  color: var(--expense);
+}
+
+.glance-progress {
+  margin-top: 14px;
+  height: 8px;
+  border-radius: 6px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+
+.glance-progress-fill {
+  height: 100%;
+  border-radius: 6px;
+  background: var(--accent-nav);
+  transition: width 0.3s ease;
+}
+
+.glance-progress-fill.over {
+  background: var(--expense);
+}
+
+/* ---- Modal header with close button ------------------------ */
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.modal-close {
+  flex: none;
+  width: var(--tap);
+  height: var(--tap);
+  border: 0;
+  background: var(--surface-3);
+  color: var(--text);
+  border-radius: 50%;
+  font-size: 1rem;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+.modal-close:active {
+  transform: scale(0.94);
+}
