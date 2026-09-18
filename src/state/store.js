@@ -22,9 +22,19 @@ import { t } from '../lib/i18n.js';
  * @property {string} selectedMonth   - 'YYYY-MM'
  * @property {string} filterCategory  - category id or '' for all
  * @property {string} lastWalletId    - last wallet used on a transaction
+ * @property {boolean} saldoHidden    - hide balances for privacy (display only)
  * @property {boolean} loaded
  * @property {string} error           - non-blocking error message ('' if none)
  */
+
+/** Read the persisted balance-privacy preference. */
+function initialSaldoHidden() {
+  try {
+    return typeof localStorage !== 'undefined' && localStorage.getItem('saldoHidden') === '1';
+  } catch {
+    return false;
+  }
+}
 
 /** @type {State} */
 const state = {
@@ -34,6 +44,7 @@ const state = {
   selectedMonth: currentMonth(),
   filterCategory: '',
   lastWalletId: '',
+  saldoHidden: initialSaldoHidden(),
   loaded: false,
   error: '',
 };
@@ -197,17 +208,20 @@ export async function removeCategory(id) {
 // ---- Wallet mutations -----------------------------------------------------
 
 /**
- * Add a wallet (Req 14.1).
- * @param {{name:string, type:import('../types.js').WalletType, balance:number}} data
+ * Add a wallet (Req 14.1). The first wallet added becomes primary by default.
+ * @param {{name:string, type:import('../types.js').WalletType, balance:number, accountNumber?:string}} data
  * @returns {Promise<import('../types.js').Wallet>}
  */
 export async function addWallet(data) {
+  const isFirst = state.wallets.length === 0;
   /** @type {import('../types.js').Wallet} */
   const wallet = {
     id: makeId(),
     name: data.name.trim(),
     type: data.type,
     balance: data.balance,
+    accountNumber: data.accountNumber ? data.accountNumber.trim() : undefined,
+    isPrimary: isFirst,
     createdAt: Date.now(),
   };
   state.wallets.push(wallet);
@@ -221,9 +235,9 @@ export async function addWallet(data) {
 }
 
 /**
- * Edit a wallet's name/type/initial balance.
+ * Edit a wallet's name/type/initial balance/account number.
  * @param {string} id
- * @param {{name:string, type:import('../types.js').WalletType, balance:number}} data
+ * @param {{name:string, type:import('../types.js').WalletType, balance:number, accountNumber?:string}} data
  * @returns {Promise<void>}
  */
 export async function editWallet(id, data) {
@@ -235,6 +249,7 @@ export async function editWallet(id, data) {
     name: data.name.trim(),
     type: data.type,
     balance: data.balance,
+    accountNumber: data.accountNumber ? data.accountNumber.trim() : undefined,
   };
   state.wallets[idx] = updated;
   notify();
@@ -246,20 +261,46 @@ export async function editWallet(id, data) {
 }
 
 /**
- * Delete a wallet. Linked transactions are reassigned to the default "Tunai"
- * wallet to preserve totals (Req 14.6, 21.2). The default wallet itself is
- * protected from deletion.
+ * Set a wallet as the primary ("UTAMA"). Clears the flag on all others so
+ * exactly one is primary at a time (Req 14).
+ * @param {string} id
+ * @returns {Promise<void>}
+ */
+export async function setPrimaryWallet(id) {
+  if (!state.wallets.some((w) => w.id === id)) return;
+  /** @type {import('../types.js').Wallet[]} */
+  const changed = [];
+  for (const w of state.wallets) {
+    const shouldBe = w.id === id;
+    if (!!w.isPrimary !== shouldBe) {
+      w.isPrimary = shouldBe;
+      changed.push(w);
+    }
+  }
+  notify();
+  try {
+    for (const w of changed) await db.updateWallet(w);
+  } catch {
+    setError(t.errors.walletUpdateFailed);
+  }
+}
+
+/**
+ * Delete a wallet. Linked transactions are reassigned to the primary wallet
+ * to preserve totals (Req 14.6, 21.2). The last remaining wallet cannot be
+ * deleted; deleting the primary promotes another wallet to primary.
  * @param {string} id
  * @returns {Promise<void>}
  */
 export async function removeWallet(id) {
-  if (id === db.DEFAULT_WALLET_ID) return;
-  const exists = state.wallets.some((w) => w.id === id);
-  if (!exists) return;
+  const target = state.wallets.find((w) => w.id === id);
+  if (!target) return;
+  // Must always keep at least one wallet.
+  if (state.wallets.length <= 1) return;
 
-  // Reassign linked transactions to the default wallet (fallback: first).
+  // Reassign linked transactions to another wallet (prefer the primary).
   const fallback =
-    state.wallets.find((w) => w.id === db.DEFAULT_WALLET_ID) ||
+    state.wallets.find((w) => w.id !== id && w.isPrimary) ||
     state.wallets.find((w) => w.id !== id);
   const fallbackId = fallback ? fallback.id : undefined;
   const affected = state.transactions.filter((tx) => tx.walletId === id);
@@ -267,10 +308,22 @@ export async function removeWallet(id) {
     tx.walletId = fallbackId;
   }
 
+  const wasPrimary = !!target.isPrimary;
   state.wallets = state.wallets.filter((w) => w.id !== id);
+
+  // If we removed the primary, promote the fallback.
+  let promoted = null;
+  if (wasPrimary && fallback) {
+    const f = state.wallets.find((w) => w.id === fallback.id);
+    if (f) {
+      f.isPrimary = true;
+      promoted = f;
+    }
+  }
   notify();
   try {
     for (const tx of affected) await db.updateTransaction(tx);
+    if (promoted) await db.updateWallet(promoted);
     await db.deleteWallet(id);
   } catch {
     setError(t.errors.walletDeleteFailed);
@@ -286,6 +339,27 @@ export function setSelectedMonth(month) {
 /** @param {string} categoryId category id or '' for all */
 export function setFilterCategory(categoryId) {
   state.filterCategory = categoryId;
+  notify();
+}
+
+/**
+ * Whether balances are hidden for privacy (a display-only preference).
+ * @returns {boolean}
+ */
+export function isSaldoHidden() {
+  return state.saldoHidden;
+}
+
+/** Toggle balance privacy; persisted as a lightweight display preference. */
+export function toggleSaldoHidden() {
+  state.saldoHidden = !state.saldoHidden;
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('saldoHidden', state.saldoHidden ? '1' : '0');
+    }
+  } catch {
+    /* ignore storage errors */
+  }
   notify();
 }
 
@@ -481,12 +555,23 @@ export function totalSaldo() {
 }
 
 /**
- * Wallets with their derived saldo, in creation order.
+ * Wallets with their derived saldo. Primary wallet first, then creation order.
  * @returns {{ wallet: import('../types.js').Wallet, saldo: number }[]}
  */
 export function walletsWithSaldo() {
   return state.wallets
     .slice()
-    .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
+    .sort((a, b) => {
+      if (!!a.isPrimary !== !!b.isPrimary) return a.isPrimary ? -1 : 1;
+      return (a.createdAt || 0) - (b.createdAt || 0);
+    })
     .map((w) => ({ wallet: w, saldo: walletSaldo(w.id) }));
+}
+
+/**
+ * The current primary ("UTAMA") wallet, if any.
+ * @returns {import('../types.js').Wallet | undefined}
+ */
+export function primaryWallet() {
+  return state.wallets.find((w) => w.isPrimary);
 }

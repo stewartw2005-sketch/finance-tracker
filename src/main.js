@@ -7,6 +7,7 @@
 import { el, render } from './lib/dom.js';
 import * as store from './state/store.js';
 import { t } from './lib/i18n.js';
+import { icon } from './lib/icons.js';
 import { renderBeranda } from './views/beranda.js';
 import { renderWallets } from './views/wallets.js';
 import { renderTransactions } from './views/transactions.js';
@@ -65,11 +66,11 @@ function renderApp() {
   renderActiveView(main);
 
   const nav = el('nav', { class: 'bottom-nav', 'aria-label': t.nav.beranda }, [
-    navButton('beranda', '◱', t.nav.beranda),
-    navButton('dompet', '👛', t.nav.dompet),
+    navButton('beranda', 'home', t.nav.beranda),
+    navButton('dompet', 'wallet', t.nav.dompet),
     fabButton(),
-    navButton('transaksi', '⇄', t.nav.transaksi),
-    navButton('lainnya', '☰', t.nav.lainnya),
+    navButton('transaksi', 'transactions', t.nav.transaksi),
+    navButton('lainnya', 'more', t.nav.lainnya),
   ]);
 
   const children = [header, main, nav];
@@ -112,19 +113,14 @@ function renderActiveView(main) {
 }
 
 function renderComingSoon(main) {
-  main.append(
-    el('div', { class: 'empty' }, [
-      el('span', { class: 'emoji', 'aria-hidden': 'true' }, '🚧'),
-      el('div', {}, t.lainnya.soon),
-    ])
-  );
+  main.append(el('div', { class: 'empty' }, el('div', {}, t.lainnya.soon)));
 }
 
 /**
  * A bottom-nav tab button.
- * @param {string} view @param {string} icon @param {string} label
+ * @param {string} view @param {import('./lib/icons.js').icon extends (n: infer N, ...a: any) => any ? N : string} iconName @param {string} label
  */
-function navButton(view, icon, label) {
+function navButton(view, iconName, label) {
   const active = activeView === view;
   return el(
     'button',
@@ -133,7 +129,10 @@ function navButton(view, icon, label) {
       onClick: () => setView(view),
       'aria-current': active ? 'page' : undefined,
     },
-    [el('span', { class: 'icon', 'aria-hidden': 'true' }, icon), el('span', {}, label)]
+    [
+      el('span', { class: 'icon', 'aria-hidden': 'true' }, icon(iconName, { size: 24 })),
+      el('span', {}, label),
+    ]
   );
 }
 
@@ -146,7 +145,7 @@ function fabButton() {
       onClick: () => openTransactionForm(),
       'aria-label': t.nav.tambah,
     },
-    el('span', { 'aria-hidden': 'true' }, '+')
+    icon('plus', { size: 28 })
   );
 }
 

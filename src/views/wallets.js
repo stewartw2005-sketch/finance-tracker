@@ -1,27 +1,25 @@
 // @ts-check
 /**
- * Dompet (wallets/accounts) — Phase 2 (Req 14).
- * Total saldo card + wallet list (type + derived saldo) + add/edit/delete.
- * Credit-card wallets can show a negative balance (amount owed).
+ * Dompet (wallets/accounts) — Phase 2 + polish (Req 14).
+ * Total saldo card with privacy lock, wallet list with a per-wallet actions
+ * menu (edit / set primary / rekening + copy / delete), and add/edit/delete.
+ * Line-style icons only (no emoji). Credit-card wallets show negative saldo.
  * @typedef {import('../types.js').Wallet} Wallet
  * @typedef {import('../types.js').WalletType} WalletType
  */
 import { el } from '../lib/dom.js';
 import * as store from '../state/store.js';
-import { money } from '../lib/format.js';
-import { parseAmount } from '../lib/format.js';
+import { money, parseAmount } from '../lib/format.js';
 import { t } from '../lib/i18n.js';
+import { icon, walletTypeIcon } from '../lib/icons.js';
 import { openModal, closeModal, confirmDialog } from './modal.js';
-import { DEFAULT_WALLET_ID } from '../data/db.js';
 
 const WALLET_TYPES = /** @type {WalletType[]} */ (['bank', 'ewallet', 'cash', 'credit']);
 
-const TYPE_ICON = {
-  bank: '🏦',
-  ewallet: '📱',
-  cash: '💵',
-  credit: '💳',
-};
+/** Currently open actions menu (wallet id) so only one is open at a time. */
+let openMenuId = null;
+/** Whether an outside-click close handler is currently bound. */
+let outsideHandlerBound = false;
 
 /**
  * Render the Dompet view.
@@ -30,103 +28,250 @@ const TYPE_ICON = {
 export function renderWallets(container) {
   const rows = store.walletsWithSaldo();
   const total = store.totalSaldo();
+  const hidden = store.isSaldoHidden();
 
-  // Total saldo card
-  const totalCard = el('div', { class: 'glance-card' }, [
-    el('div', { class: 'glance-label' }, [
-      el('span', { 'aria-hidden': 'true' }, '💰'),
-      el('span', {}, t.wallet.totalSaldo),
-    ]),
-    el(
-      'div',
-      { class: 'glance-amount' + (total < 0 ? ' negative' : '') },
-      money(total)
-    ),
-  ]);
-
-  // Add button
-  const addBtn = el(
-    'button',
-    { class: 'btn primary full', onClick: () => openWalletForm() },
-    '+ ' + t.wallet.addButton
-  );
-
-  // Wallet list
-  let listNode;
-  if (rows.length === 0) {
-    listNode = el('div', { class: 'empty' }, [
-      el('span', { class: 'emoji', 'aria-hidden': 'true' }, '👛'),
-      el('div', {}, t.wallet.emptyTitle),
-      el('div', { style: 'font-size:0.85rem;margin-top:4px' }, t.wallet.emptyHint),
-    ]);
-  } else {
-    listNode = el(
-      'ul',
-      { class: 'wallet-list' },
-      rows.map(({ wallet, saldo }) => walletRow(wallet, saldo))
-    );
+  // Close any open actions menu when tapping elsewhere (registered once).
+  if (openMenuId && !outsideHandlerBound) {
+    outsideHandlerBound = true;
+    const closeOnOutside = () => {
+      if (openMenuId) {
+        openMenuId = null;
+        outsideHandlerBound = false;
+        document.removeEventListener('click', closeOnOutside);
+        rerender();
+      } else {
+        outsideHandlerBound = false;
+        document.removeEventListener('click', closeOnOutside);
+      }
+    };
+    // Defer so the opening click doesn't immediately close it.
+    setTimeout(() => document.addEventListener('click', closeOnOutside), 0);
   }
 
   container.append(
-    totalCard,
-    el('div', { style: 'margin:14px 0' }, addBtn),
+    totalSaldoCard(total, hidden),
+    el('div', { style: 'margin:14px 0' },
+      el('button', { class: 'btn primary full', onClick: () => openWalletForm() }, '+ ' + t.wallet.addButton)
+    ),
     el('div', { class: 'section-title' }, t.wallet.yourWallets),
-    listNode
+    rows.length === 0
+      ? el('div', { class: 'empty' }, [
+          el('div', {}, t.wallet.emptyTitle),
+          el('div', { style: 'font-size:0.85rem;margin-top:4px' }, t.wallet.emptyHint),
+        ])
+      : el('ul', { class: 'wallet-list' }, rows.map(({ wallet, saldo }) => walletRow(wallet, saldo, hidden)))
   );
 }
 
 /**
- * @param {Wallet} w @param {number} saldo
- * @returns {HTMLElement}
+ * Total saldo card with a privacy lock toggle.
+ * @param {number} total @param {boolean} hidden
  */
-function walletRow(w, saldo) {
-  const isCredit = w.type === 'credit';
-  const negative = saldo < 0;
-  // Credit wallets that are negative show the owed amount explicitly.
-  const saldoText =
-    isCredit && negative
-      ? `${money(saldo)} · ${t.wallet.owed}`
-      : money(saldo);
-
-  return el('li', { class: 'wallet-item' }, [
-    el('span', { class: 'wallet-icon', 'aria-hidden': 'true' }, TYPE_ICON[w.type] || '👛'),
-    el('div', { class: 'wallet-main' }, [
-      el('div', { class: 'wallet-name' }, [
-        w.name,
-        w.id === DEFAULT_WALLET_ID
-          ? el('span', { class: 'badge', style: 'margin-left:8px' }, t.wallet.defaultBadge)
-          : null,
-      ]),
-      el('div', { class: 'wallet-type' }, t.wallet.types[w.type] || ''),
-    ]),
-    el(
-      'div',
-      { class: 'wallet-saldo ' + (negative ? 'negative' : 'positive') },
-      saldoText
-    ),
-    el('div', { class: 'tx-actions' }, [
+function totalSaldoCard(total, hidden) {
+  return el('div', { class: 'saldo-card' }, [
+    el('div', { class: 'saldo-head' }, [
+      el('span', { class: 'saldo-label' }, t.wallet.totalSaldo),
       el(
         'button',
         {
-          class: 'icon-btn',
-          'aria-label': t.app.edit,
-          onClick: () => openWalletForm(w),
+          class: 'saldo-lock',
+          'aria-label': hidden ? t.wallet.showBalance : t.wallet.hideBalance,
+          'aria-pressed': hidden ? 'true' : 'false',
+          onClick: () => store.toggleSaldoHidden(),
         },
-        '✏️'
+        icon(hidden ? 'lock' : 'unlock', { size: 18 })
       ),
-      w.id === DEFAULT_WALLET_ID
-        ? null
-        : el(
-            'button',
-            {
-              class: 'icon-btn',
-              'aria-label': t.app.delete,
-              onClick: () => confirmDeleteWallet(w),
-            },
-            '🗑️'
-          ),
+    ]),
+    el(
+      'div',
+      { class: 'saldo-value' + (total < 0 ? ' negative' : '') },
+      hidden ? t.wallet.hidden : money(total)
+    ),
+  ]);
+}
+
+/**
+ * @param {Wallet} w @param {number} saldo @param {boolean} hidden
+ * @returns {HTMLElement}
+ */
+function walletRow(w, saldo, hidden) {
+  const isCredit = w.type === 'credit';
+  const negative = saldo < 0;
+  const saldoText = hidden
+    ? t.wallet.hidden
+    : isCredit && negative
+    ? `${money(saldo)} · ${t.wallet.owed}`
+    : money(saldo);
+
+  const menu = actionsMenu(w);
+
+  return el('li', { class: 'wallet-item' }, [
+    el('span', { class: 'wallet-icon', 'aria-hidden': 'true' }, icon(walletTypeIcon(w.type), { size: 22 })),
+    el('div', { class: 'wallet-main' }, [
+      el('div', { class: 'wallet-name-row' }, [
+        el('span', { class: 'wallet-name' }, w.name),
+        w.isPrimary ? el('span', { class: 'badge primary-badge' }, t.wallet.primaryBadge) : null,
+      ]),
+      el('div', { class: 'wallet-type' }, t.wallet.types[w.type] || ''),
+    ]),
+    el('div', { class: 'wallet-right' }, [
+      el('span', { class: 'wallet-saldo ' + (negative ? 'negative' : '') }, saldoText),
+      menu.button,
+    ]),
+    menu.panel,
+  ]);
+}
+
+/**
+ * Build the per-wallet actions dropdown (button + panel).
+ * @param {Wallet} w
+ * @returns {{ button: HTMLElement, panel: HTMLElement }}
+ */
+function actionsMenu(w) {
+  const isOpen = openMenuId === w.id;
+
+  const button = el(
+    'button',
+    {
+      class: 'wallet-menu-btn',
+      'aria-label': t.wallet.actionsAria,
+      'aria-expanded': isOpen ? 'true' : 'false',
+      onClick: (e) => {
+        e.stopPropagation();
+        openMenuId = isOpen ? null : w.id;
+        rerender();
+      },
+    },
+    icon('dots', { size: 20 })
+  );
+
+  if (!isOpen) {
+    return { button, panel: el('div', { style: 'display:none' }) };
+  }
+
+  // Rekening row: read-only value + copy button.
+  const acct = w.accountNumber || '';
+  const copyBtn = el(
+    'button',
+    {
+      class: 'btn ghost sm',
+      disabled: acct ? undefined : true,
+      onClick: (e) => {
+        e.stopPropagation();
+        copyToClipboard(acct, e.currentTarget);
+      },
+    },
+    [icon('copy', { size: 16 }), el('span', {}, t.wallet.copy)]
+  );
+
+  const rekeningRow = el('div', { class: 'menu-rekening' }, [
+    el('div', { class: 'menu-rekening-label' }, t.wallet.accountNumber),
+    el('div', { class: 'menu-rekening-row' }, [
+      el('span', { class: 'menu-rekening-value' + (acct ? '' : ' muted') }, acct || t.wallet.noAccountNumber),
+      copyBtn,
     ]),
   ]);
+
+  const items = [];
+  // Set as primary (only if not already primary)
+  if (!w.isPrimary) {
+    items.push(
+      menuAction('star', t.wallet.setPrimary, () => {
+        openMenuId = null;
+        store.setPrimaryWallet(w.id);
+      })
+    );
+  }
+  items.push(
+    menuAction('edit', t.app.edit, () => {
+      openMenuId = null;
+      openWalletForm(w);
+    })
+  );
+  // Delete (blocked if it's the last wallet)
+  const isLast = store.getState().wallets.length <= 1;
+  if (!isLast) {
+    items.push(
+      menuAction('trash', t.app.delete, () => {
+        openMenuId = null;
+        confirmDeleteWallet(w);
+      }, true)
+    );
+  }
+
+  const panel = el(
+    'div',
+    { class: 'wallet-menu-panel', onClick: (e) => e.stopPropagation() },
+    [rekeningRow, el('div', { class: 'menu-divider' }), ...items]
+  );
+
+  return { button, panel };
+}
+
+/**
+ * @param {import('../lib/icons.js').icon} iconName
+ * @param {string} label @param {() => void} onClick @param {boolean} [danger]
+ */
+function menuAction(iconName, label, onClick, danger) {
+  return el(
+    'button',
+    {
+      class: 'menu-action' + (danger ? ' danger' : ''),
+      onClick: (e) => {
+        e.stopPropagation();
+        onClick();
+        rerender();
+      },
+    },
+    [icon(/** @type {any} */ (iconName), { size: 18 }), el('span', {}, label)]
+  );
+}
+
+/** Copy text to clipboard with a brief "Tersalin!" confirmation. */
+function copyToClipboard(text, btnEl) {
+  if (!text) return;
+  const done = () => {
+    const span = btnEl.querySelector('span');
+    if (span) {
+      const orig = span.textContent;
+      span.textContent = t.wallet.copied;
+      setTimeout(() => {
+        span.textContent = orig;
+      }, 1200);
+    }
+  };
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+    } else {
+      fallbackCopy(text, done);
+    }
+  } catch {
+    fallbackCopy(text, done);
+  }
+}
+
+function fallbackCopy(text, done) {
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    done();
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Re-render the app by notifying the store subscribers (no state change). */
+function rerender() {
+  // The store's notify() drives a full re-render; toggle a no-op mutation by
+  // re-setting the selected month to itself.
+  store.setSelectedMonth(store.getState().selectedMonth);
 }
 
 /**
@@ -139,6 +284,7 @@ function openWalletForm(existing) {
     name: existing ? existing.name : '',
     type: /** @type {WalletType} */ (existing ? existing.type : 'bank'),
     balance: existing ? String(existing.balance) : '',
+    accountNumber: existing && existing.accountNumber ? existing.accountNumber : '',
   };
   /** @type {Record<string,string>} */
   let errors = {};
@@ -174,10 +320,19 @@ function openWalletForm(existing) {
       onInput: (e) => (form.balance = e.target.value),
     });
 
+    const acctInput = el('input', {
+      type: 'text',
+      inputmode: 'numeric',
+      value: form.accountNumber,
+      placeholder: t.wallet.accountNumberPlaceholder,
+      onInput: (e) => (form.accountNumber = e.target.value),
+    });
+
     content.append(
       field(t.wallet.name, nameInput, errors.name),
       field(t.wallet.type, typeSelect),
       field(t.wallet.initialBalance, balanceInput, errors.balance),
+      field(t.wallet.accountNumber, acctInput),
       el('div', { class: 'btn-row' }, [
         el('button', { type: 'button', class: 'btn ghost', onClick: () => closeModal() }, t.app.cancel),
         el('button', { type: 'submit', class: 'btn primary' }, isEdit ? t.app.save : t.app.add),
@@ -197,12 +352,10 @@ function openWalletForm(existing) {
     e.preventDefault();
     errors = {};
     const name = form.name.trim();
-    // Balance may be empty (treated as 0) or a valid integer; credit can be negative.
     const rawBalance = form.balance.trim();
     let balance = 0;
     if (rawBalance !== '') {
       balance = parseAmount(rawBalance);
-      // Allow a leading minus for any type (credit typically negative).
       if (Number.isNaN(balance)) errors.balance = t.wallet.balanceInvalid;
     }
     if (!name) errors.name = t.wallet.nameRequired;
@@ -212,10 +365,16 @@ function openWalletForm(existing) {
       return;
     }
 
+    const payload = {
+      name,
+      type: form.type,
+      balance,
+      accountNumber: form.accountNumber.trim() || undefined,
+    };
     if (isEdit && existing) {
-      await store.editWallet(existing.id, { name, type: form.type, balance });
+      await store.editWallet(existing.id, payload);
     } else {
-      await store.addWallet({ name, type: form.type, balance });
+      await store.addWallet(payload);
     }
     closeModal();
   });
@@ -226,9 +385,7 @@ function openWalletForm(existing) {
 
 /** @param {Wallet} w */
 function confirmDeleteWallet(w) {
-  const linked = store
-    .getState()
-    .transactions.filter((tx) => tx.walletId === w.id).length;
+  const linked = store.getState().transactions.filter((tx) => tx.walletId === w.id).length;
   confirmDialog({
     title: t.wallet.deleteTitle,
     message: t.wallet.deleteMsg(w.name, linked),

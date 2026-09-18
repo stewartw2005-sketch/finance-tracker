@@ -213,10 +213,19 @@ export async function seedDefaultWalletAndMigrate(tunaiName) {
         name: tunaiName,
         type: 'cash',
         balance: 0,
+        isPrimary: true,
         createdAt: Date.now(),
       };
       await addWallet(tunai);
       wallets = [tunai];
+    }
+
+    // Ensure exactly one primary wallet exists (migration for pre-primary data).
+    if (wallets.length > 0 && !wallets.some((w) => w.isPrimary)) {
+      const first =
+        wallets.find((w) => w.id === DEFAULT_WALLET_ID) || wallets[0];
+      first.isPrimary = true;
+      await updateWallet(first);
     }
 
     // Migrate legacy transactions with no walletId to the default wallet.
