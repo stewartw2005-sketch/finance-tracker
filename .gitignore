@@ -1,0 +1,13 @@
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
+
+# Logs
+*.log
+
+# Node (not used for the app, but just in case)
+node_modules/
+
+# Local Kiro settings (not part of the app)
+.kiro/settings/

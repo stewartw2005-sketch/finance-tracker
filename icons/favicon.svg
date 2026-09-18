@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#000000"/>
+  <!-- Coin / balance mark -->
+  <circle cx="256" cy="256" r="150" fill="none" stroke="#34d399" stroke-width="28"/>
+  <path d="M256 168 v176" stroke="#f4f4f5" stroke-width="26" stroke-linecap="round"/>
+  <path d="M300 208 c0 -26 -22 -40 -48 -40 c-26 0 -46 14 -46 36 c0 52 96 30 96 84 c0 24 -22 40 -50 40 c-28 0 -50 -16 -50 -42"
+        fill="none" stroke="#f4f4f5" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
