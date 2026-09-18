@@ -7,6 +7,7 @@ import { el } from '../lib/dom.js';
 import { openModal, confirmDialog } from './modal.js';
 import * as store from '../state/store.js';
 import { categoryNameExists } from '../lib/validation.js';
+import { t } from '../lib/i18n.js';
 
 export function openCategoryManager() {
   const content = el('div', { class: 'stack' });
@@ -15,7 +16,7 @@ export function openCategoryManager() {
     content.textContent = '';
     const categories = store.getState().categories.slice().sort((a, b) => {
       if (a.isDefault !== b.isDefault) return a.isDefault ? -1 : 1;
-      return a.name.localeCompare(b.name);
+      return store.categoryName(a.id).localeCompare(store.categoryName(b.id));
     });
 
     // Add form
@@ -23,8 +24,8 @@ export function openCategoryManager() {
     let error = '';
     const input = el('input', {
       type: 'text',
-      placeholder: 'New category name',
-      'aria-label': 'New category name',
+      placeholder: t.category.newNamePlaceholder,
+      'aria-label': t.category.newNameAria,
       onInput: (e) => {
         inputValue = e.target.value;
       },
@@ -35,9 +36,9 @@ export function openCategoryManager() {
       const name = inputValue.trim();
       error = '';
       if (!name) {
-        error = 'Enter a category name.';
+        error = t.category.nameRequired;
       } else if (categoryNameExists(name, store.getState().categories)) {
-        error = 'That category already exists.';
+        error = t.category.duplicate;
       }
       if (error) {
         errorNode.textContent = error;
@@ -51,10 +52,10 @@ export function openCategoryManager() {
     }
 
     const addForm = el('form', { class: 'field', onSubmit: (e) => { e.preventDefault(); submitAdd(); } }, [
-      el('span', { class: 'field-label' }, 'Add a category'),
+      el('span', { class: 'field-label' }, t.category.addLabel),
       el('div', { class: 'filter-bar' }, [
         input,
-        el('button', { type: 'submit', class: 'btn primary' }, 'Add'),
+        el('button', { type: 'submit', class: 'btn primary' }, t.app.add),
       ]),
       errorNode,
     ]);
@@ -65,15 +66,16 @@ export function openCategoryManager() {
       { class: 'cat-list' },
       categories.map((c) => {
         const inUse = store.countTransactionsForCategory(c.id);
+        const displayName = store.categoryName(c.id);
         return el('li', { class: 'cat-item' }, [
-          el('span', { class: 'cat-name' }, c.name),
+          el('span', { class: 'cat-name' }, displayName),
           c.isDefault
-            ? el('span', { class: 'badge' }, 'Default')
+            ? el('span', { class: 'badge' }, t.category.defaultBadge)
             : el(
                 'button',
                 {
                   class: 'icon-btn',
-                  'aria-label': `Delete ${c.name}`,
+                  'aria-label': t.category.deleteAria(displayName),
                   onClick: () => deleteCategory(c, inUse, rebuild),
                 },
                 '🗑️'
@@ -84,13 +86,13 @@ export function openCategoryManager() {
 
     content.append(
       addForm,
-      el('div', { class: 'section-title', style: 'margin-top:6px' }, 'Your categories'),
+      el('div', { class: 'section-title', style: 'margin-top:6px' }, t.category.yourCategories),
       listNode
     );
   }
 
   rebuild();
-  openModal('Categories', content);
+  openModal(t.category.title, content);
 }
 
 /**
@@ -100,21 +102,14 @@ export function openCategoryManager() {
  */
 function deleteCategory(c, inUse, rebuild) {
   const doDelete = () => store.removeCategory(c.id).then(rebuild);
-  if (inUse > 0) {
-    confirmDialog({
-      title: 'Delete category?',
-      message: `"${c.name}" is used by ${inUse} transaction${
-        inUse === 1 ? '' : 's'
-      }. Those transactions will keep their category but you won't be able to pick it again. Delete anyway?`,
-      confirmLabel: 'Delete',
-      onConfirm: doDelete,
-    });
-  } else {
-    confirmDialog({
-      title: 'Delete category?',
-      message: `Delete "${c.name}"?`,
-      confirmLabel: 'Delete',
-      onConfirm: doDelete,
-    });
-  }
+  const displayName = store.categoryName(c.id);
+  confirmDialog({
+    title: t.category.deleteTitle,
+    message:
+      inUse > 0
+        ? t.category.deleteMsgInUse(displayName, inUse)
+        : t.category.deleteMsgSimple(displayName),
+    confirmLabel: t.app.delete,
+    onConfirm: doDelete,
+  });
 }

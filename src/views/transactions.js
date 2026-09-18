@@ -7,6 +7,7 @@ import { el } from '../lib/dom.js';
 import * as store from '../state/store.js';
 import { formatMonthLabel, formatDateLabel } from '../lib/dates.js';
 import { signedMoney } from '../lib/format.js';
+import { t, typeLabel } from '../lib/i18n.js';
 import { monthSelect } from './monthSelect.js';
 import { openTransactionForm } from './transactionForm.js';
 import { confirmDialog } from './modal.js';
@@ -24,13 +25,13 @@ export function renderTransactions(container) {
   const catFilter = el(
     'select',
     {
-      'aria-label': 'Filter by category',
+      'aria-label': t.tx.filterCategoryAria,
       onChange: (e) => store.setFilterCategory(e.target.value),
     },
     [
-      el('option', { value: '', selected: state.filterCategory === '' }, 'All categories'),
+      el('option', { value: '', selected: state.filterCategory === '' }, t.tx.allCategories),
       ...categories.map((c) =>
-        el('option', { value: c.id, selected: c.id === state.filterCategory }, c.name)
+        el('option', { value: c.id, selected: c.id === state.filterCategory }, store.categoryName(c.id))
       ),
     ]
   );
@@ -38,11 +39,11 @@ export function renderTransactions(container) {
   const filterBar = el('div', { class: 'card' }, [
     el('div', { class: 'filter-bar' }, [
       el('label', { class: 'field' }, [
-        el('span', { class: 'field-label' }, 'Month'),
+        el('span', { class: 'field-label' }, t.tx.filterMonth),
         monthSelect(),
       ]),
       el('label', { class: 'field' }, [
-        el('span', { class: 'field-label' }, 'Category'),
+        el('span', { class: 'field-label' }, t.tx.filterCategory),
         catFilter,
       ]),
     ]),
@@ -53,7 +54,7 @@ export function renderTransactions(container) {
           el(
             'button',
             { class: 'link-btn', onClick: () => store.clearFilters() },
-            'Clear filters'
+            t.app.clear
           )
         )
       : null,
@@ -64,14 +65,14 @@ export function renderTransactions(container) {
   if (list.length === 0) {
     listNode = el('div', { class: 'empty' }, [
       el('span', { class: 'emoji', 'aria-hidden': 'true' }, '🗒️'),
-      el('div', {}, 'No transactions match this view.'),
-      el('div', { style: 'font-size:0.85rem;margin-top:4px' }, 'Tap + to add one.'),
+      el('div', {}, t.tx.emptyTitle),
+      el('div', { style: 'font-size:0.85rem;margin-top:4px' }, t.tx.emptyHint),
     ]);
   } else {
     listNode = el(
       'ul',
       { class: 'tx-list' },
-      list.map((t) => transactionRow(t))
+      list.map((tx) => transactionRow(tx))
     );
   }
 
@@ -80,34 +81,32 @@ export function renderTransactions(container) {
     el(
       'div',
       { class: 'section-title' },
-      `${list.length} transaction${list.length === 1 ? '' : 's'} — ${formatMonthLabel(
-        state.selectedMonth
-      )}`
+      t.tx.count(list.length, formatMonthLabel(state.selectedMonth))
     ),
     listNode
   );
 }
 
 /**
- * @param {import('../types.js').Transaction} t
+ * @param {import('../types.js').Transaction} tx
  * @returns {HTMLElement}
  */
-function transactionRow(t) {
-  const meta = [formatDateLabel(t.date), store.categoryName(t.categoryId)].join(' · ');
+function transactionRow(tx) {
+  const meta = [formatDateLabel(tx.date), store.categoryName(tx.categoryId)].join(' · ');
   return el('li', { class: 'tx-item' }, [
     el('div', { class: 'tx-main' }, [
-      el('div', { class: 'tx-cat' }, store.categoryName(t.categoryId)),
+      el('div', { class: 'tx-cat' }, store.categoryName(tx.categoryId)),
       el('div', { class: 'tx-meta' }, meta),
-      t.note ? el('div', { class: 'tx-note' }, t.note) : null,
+      tx.note ? el('div', { class: 'tx-note' }, tx.note) : null,
     ]),
-    el('div', { class: 'tx-amount ' + t.type }, signedMoney(t.amount, t.type)),
+    el('div', { class: 'tx-amount ' + tx.type }, signedMoney(tx.amount, tx.type)),
     el('div', { class: 'tx-actions' }, [
       el(
         'button',
         {
           class: 'icon-btn',
-          'aria-label': 'Edit transaction',
-          onClick: () => openTransactionForm(t),
+          'aria-label': t.tx.editAria,
+          onClick: () => openTransactionForm(tx),
         },
         '✏️'
       ),
@@ -115,8 +114,8 @@ function transactionRow(t) {
         'button',
         {
           class: 'icon-btn',
-          'aria-label': 'Delete transaction',
-          onClick: () => confirmDelete(t),
+          'aria-label': t.tx.deleteAria,
+          onClick: () => confirmDelete(tx),
         },
         '🗑️'
       ),
@@ -124,14 +123,16 @@ function transactionRow(t) {
   ]);
 }
 
-/** @param {import('../types.js').Transaction} t */
-function confirmDelete(t) {
+/** @param {import('../types.js').Transaction} tx */
+function confirmDelete(tx) {
   confirmDialog({
-    title: 'Delete transaction?',
-    message: `Delete this ${t.type} of ${signedMoney(t.amount, t.type)} in ${store.categoryName(
-      t.categoryId
-    )}? This can't be undone.`,
-    confirmLabel: 'Delete',
-    onConfirm: () => store.removeTransaction(t.id),
+    title: t.tx.deleteTitle,
+    message: t.tx.deleteMsg(
+      typeLabel(tx.type),
+      signedMoney(tx.amount, tx.type),
+      store.categoryName(tx.categoryId)
+    ),
+    confirmLabel: t.app.delete,
+    onConfirm: () => store.removeTransaction(tx.id),
   });
 }

@@ -1,7 +1,8 @@
 // @ts-check
 /**
- * Dashboard view (Req 6, 7): month selector, summary cards (income, expenses,
- * net with negative styling), and the spending-by-category chart.
+ * Beranda (home) — placeholder for Phase 1. Shows the current month's
+ * income/expenses/net summary. The full Dashboard (greeting, daily budget,
+ * calendar heatmap, etc.) is built in Phase 9 once its data sources exist.
  */
 import { el } from '../lib/dom.js';
 import * as store from '../state/store.js';
@@ -9,23 +10,20 @@ import { money } from '../lib/format.js';
 import { formatMonthLabel } from '../lib/dates.js';
 import { t } from '../lib/i18n.js';
 import { monthSelect } from './monthSelect.js';
-import { spendingChart } from './chart.js';
 
 /**
- * Render the dashboard into the given container.
+ * Render the Beranda into the given container.
  * @param {HTMLElement} container
  */
-export function renderDashboard(container) {
+export function renderBeranda(container) {
   const month = store.getState().selectedMonth;
   const summary = store.selectMonthlySummary(month);
-  const spending = store.selectSpendingByCategory(month);
+  const netClass = summary.net < 0 ? 'negative' : summary.net > 0 ? 'positive' : '';
 
   const monthRow = el('label', { class: 'field', style: 'margin-bottom:16px' }, [
     el('span', { class: 'field-label' }, t.dashboard.month),
     monthSelect(),
   ]);
-
-  const netClass = summary.net < 0 ? 'negative' : summary.net > 0 ? 'positive' : '';
 
   const summaryGrid = el('div', { class: 'summary-grid' }, [
     summaryCard(t.dashboard.income, money(summary.totalIncome), 'income'),
@@ -37,10 +35,9 @@ export function renderDashboard(container) {
   ]);
 
   container.append(
+    el('div', { class: 'section-title' }, t.beranda.ringkasanBulan),
     monthRow,
-    summaryGrid,
-    el('div', { class: 'section-title' }, t.dashboard.spendingByCategory),
-    el('div', { class: 'card' }, spendingChart(spending))
+    summaryGrid
   );
 }
 

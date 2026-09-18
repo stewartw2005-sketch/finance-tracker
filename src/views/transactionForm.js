@@ -7,7 +7,9 @@ import { el } from '../lib/dom.js';
 import { openModal, closeModal } from './modal.js';
 import * as store from '../state/store.js';
 import { validateTransaction } from '../lib/validation.js';
+import { parseAmount } from '../lib/format.js';
 import { todayISO } from '../lib/dates.js';
+import { t } from '../lib/i18n.js';
 
 /**
  * Open the transaction form. Pass a transaction to edit; omit to add.
@@ -36,18 +38,18 @@ export function openTransactionForm(existing) {
     content.textContent = '';
 
     // Type segmented control
-    const seg = el('div', { class: 'segmented', role: 'group', 'aria-label': 'Type' }, [
-      typeButton('expense', 'Expense'),
-      typeButton('income', 'Income'),
+    const seg = el('div', { class: 'segmented', role: 'group', 'aria-label': t.tx.type }, [
+      typeButton('expense', t.tx.expense),
+      typeButton('income', t.tx.income),
     ]);
 
-    // Amount
+    // Amount (whole Rupiah)
     const amountInput = el('input', {
       type: 'number',
-      inputmode: 'decimal',
-      step: '0.01',
+      inputmode: 'numeric',
+      step: '1',
       min: '0',
-      placeholder: '0.00',
+      placeholder: t.tx.amountPlaceholder,
       value: form.amount,
       class: errors.amount ? 'invalid' : '',
       onInput: (e) => (form.amount = e.target.value),
@@ -61,9 +63,9 @@ export function openTransactionForm(existing) {
         onChange: (e) => (form.categoryId = e.target.value),
       },
       [
-        el('option', { value: '', disabled: true, selected: !form.categoryId }, 'Select category…'),
+        el('option', { value: '', disabled: true, selected: !form.categoryId }, t.tx.selectCategory),
         ...categories.map((c) =>
-          el('option', { value: c.id, selected: c.id === form.categoryId }, c.name)
+          el('option', { value: c.id, selected: c.id === form.categoryId }, store.categoryName(c.id))
         ),
       ]
     );
@@ -78,20 +80,20 @@ export function openTransactionForm(existing) {
 
     // Note
     const noteInput = el('textarea', {
-      placeholder: 'Optional note',
+      placeholder: t.tx.notePlaceholder,
       value: form.note,
       onInput: (e) => (form.note = e.target.value),
     });
 
     content.append(
-      field('Type', seg, errors.type),
-      field('Amount', amountInput, errors.amount),
-      field('Category', catSelect, errors.categoryId),
-      field('Date', dateInput, errors.date),
-      field('Note', noteInput),
+      field(t.tx.type, seg, errors.type),
+      field(t.tx.amount, amountInput, errors.amount),
+      field(t.tx.category, catSelect, errors.categoryId),
+      field(t.tx.date, dateInput, errors.date),
+      field(t.tx.note, noteInput),
       el('div', { class: 'btn-row' }, [
-        el('button', { type: 'button', class: 'btn ghost', onClick: () => closeModal() }, 'Cancel'),
-        el('button', { type: 'submit', class: 'btn primary' }, isEdit ? 'Save' : 'Add'),
+        el('button', { type: 'button', class: 'btn ghost', onClick: () => closeModal() }, t.app.cancel),
+        el('button', { type: 'submit', class: 'btn primary' }, isEdit ? t.app.save : t.app.add),
       ])
     );
   }
@@ -138,7 +140,7 @@ export function openTransactionForm(existing) {
       return;
     }
     const payload = {
-      amount: parseFloat(form.amount),
+      amount: parseAmount(form.amount),
       type: form.type,
       categoryId: form.categoryId,
       date: form.date,
@@ -153,5 +155,5 @@ export function openTransactionForm(existing) {
   });
 
   rebuild();
-  openModal(isEdit ? 'Edit transaction' : 'Add transaction', content);
+  openModal(isEdit ? t.tx.editTitle : t.tx.addTitle, content);
 }

@@ -1,6 +1,8 @@
 // @ts-check
 /** Date helpers working in the user's local timezone. All dates are stored
- *  as ISO 'YYYY-MM-DD' strings; months as 'YYYY-MM'. */
+ *  as ISO 'YYYY-MM-DD' strings; months as 'YYYY-MM'. Labels use Indonesian
+ *  formatting (Req 12.5). */
+import { locale } from './i18n.js';
 
 /**
  * Today's date as ISO 'YYYY-MM-DD' in local time.
@@ -48,11 +50,11 @@ export function formatMonthLabel(monthKey) {
   const [y, m] = (monthKey || '').split('-').map(Number);
   if (!y || !m) return monthKey || '';
   const d = new Date(y, m - 1, 1);
-  return d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  return d.toLocaleDateString(locale, { month: 'long', year: 'numeric' });
 }
 
 /**
- * Human-friendly date label, e.g. '2026-09-18' -> 'Sep 18, 2026'.
+ * Human-friendly date label in Indonesian, e.g. '2026-09-18' -> '18 Sep 2026'.
  * @param {string} isoDate
  * @returns {string}
  */
@@ -60,11 +62,31 @@ export function formatDateLabel(isoDate) {
   const [y, m, d] = (isoDate || '').split('-').map(Number);
   if (!y || !m || !d) return isoDate || '';
   const date = new Date(y, m - 1, d);
-  return date.toLocaleDateString(undefined, {
-    month: 'short',
+  return date.toLocaleDateString(locale, {
     day: 'numeric',
+    month: 'short',
     year: 'numeric',
   });
+}
+
+/**
+ * True if the ISO date is today (local time).
+ * @param {string} isoDate
+ * @returns {boolean}
+ */
+export function isToday(isoDate) {
+  return isoDate === todayISO();
+}
+
+/**
+ * True if the ISO date is yesterday (local time).
+ * @param {string} isoDate
+ * @returns {boolean}
+ */
+export function isYesterday(isoDate) {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return isoDate === toISODate(d);
 }
 
 /**

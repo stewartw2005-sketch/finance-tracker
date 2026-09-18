@@ -1,49 +1,59 @@
 // @ts-check
-/** Currency formatting. Single locale/currency for this personal build. */
+/**
+ * Currency formatting (Req 12). The app uses Indonesian Rupiah (IDR),
+ * displayed as `Rp1.250.000` with Indonesian thousands separators and no
+ * decimal places. Internal math uses whole-rupiah integers.
+ */
+import { locale } from './i18n.js';
 
-const fmt = new Intl.NumberFormat(undefined, {
+const fmt = new Intl.NumberFormat(locale, {
   style: 'currency',
-  currency: guessCurrency(),
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
+  currency: 'IDR',
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
 });
 
 /**
- * Best-effort local currency; falls back to USD.
- * @returns {string}
- */
-function guessCurrency() {
-  try {
-    const region = (navigator.language || 'en-US').split('-')[1];
-    /** @type {Record<string,string>} */
-    const map = {
-      US: 'USD', GB: 'GBP', EU: 'EUR', DE: 'EUR', FR: 'EUR', ES: 'EUR',
-      IT: 'EUR', IE: 'EUR', IN: 'INR', JP: 'JPY', CN: 'CNY', CA: 'CAD',
-      AU: 'AUD', NZ: 'NZD', CH: 'CHF', SE: 'SEK', NO: 'NOK', DK: 'DKK',
-      BR: 'BRL', MX: 'MXN', ZA: 'ZAR', SG: 'SGD', AE: 'AED', SA: 'SAR',
-    };
-    return (region && map[region]) || 'USD';
-  } catch {
-    return 'USD';
-  }
-}
-
-/**
- * Format a number as currency.
+ * Format a number as Rupiah, e.g. 1250000 -> "Rp1.250.000".
+ * Negative values keep their sign, e.g. -500000 -> "-Rp500.000".
  * @param {number} n
  * @returns {string}
  */
 export function money(n) {
-  return fmt.format(Number.isFinite(n) ? n : 0);
+  return fmt.format(Number.isFinite(n) ? Math.round(n) : 0);
 }
 
 /**
- * Format with an explicit +/- sign for a transaction based on its type.
+ * Format an absolute Rupiah value with an explicit +/- sign based on the
+ * transaction type. Expenses are shown negative, income positive.
  * @param {number} amount
  * @param {'income'|'expense'} type
  * @returns {string}
  */
 export function signedMoney(amount, type) {
   const sign = type === 'expense' ? '-' : '+';
-  return sign + money(Math.abs(amount)).replace('-', '');
+  return sign + money(Math.abs(amount));
+}
+
+/**
+ * Format a signed Rupiah value directly (used for balances/gains that may be
+ * negative), e.g. -500000 -> "-Rp500.000", 300000 -> "Rp300.000".
+ * @param {number} n
+ * @returns {string}
+ */
+export function moneySigned(n) {
+  return money(n);
+}
+
+/**
+ * Parse user input into a whole-rupiah integer. Accepts plain digits and
+ * strips grouping characters (`.`, `,`, spaces). Returns NaN if not numeric.
+ * @param {string|number} input
+ * @returns {number}
+ */
+export function parseAmount(input) {
+  if (typeof input === 'number') return Math.round(input);
+  const cleaned = String(input).replace(/[.\s,]/g, '');
+  if (cleaned === '' || !/^-?\d+$/.test(cleaned)) return NaN;
+  return parseInt(cleaned, 10);
 }

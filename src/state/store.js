@@ -12,6 +12,7 @@
 import * as db from '../data/db.js';
 import { currentMonth, monthOf } from '../lib/dates.js';
 import { makeId } from '../lib/validation.js';
+import { t } from '../lib/i18n.js';
 
 /**
  * @typedef {Object} State
@@ -302,7 +303,11 @@ export function selectSpendingByCategory(month = state.selectedMonth) {
  */
 export function categoryName(id) {
   const c = state.categories.find((x) => x.id === id);
-  return c ? c.name : 'Unknown';
+  if (!c) return t.category.unknown;
+  // Localize default categories by their stable slug id; custom categories
+  // keep their user-entered name.
+  if (c.isDefault && t.defaultCategories[c.id]) return t.defaultCategories[c.id];
+  return c.name;
 }
 
 /**
