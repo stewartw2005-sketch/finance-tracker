@@ -119,13 +119,18 @@ function glanceCard(summary, hidden) {
  * @returns {HTMLElement}
  */
 function monthSummaryGrid(month, summary) {
-  const netClass = summary.net < 0 ? 'negative' : summary.net > 0 ? 'positive' : '';
+  // Pemasukan uses spendable income (expected + actual − savings), matching
+  // "Sekilas Hari Ini"; Saldo Bersih is recomputed from it so it stays
+  // consistent (spendable income − expenses).
+  const income = store.spendableIncome(month);
+  const net = income - summary.totalExpenses;
+  const netClass = net < 0 ? 'negative' : net > 0 ? 'positive' : '';
   return el('div', { class: 'summary-grid' }, [
-    summaryCard(t.dashboard.income, money(summary.totalIncome), 'income'),
+    summaryCard(t.dashboard.income, money(income), 'income'),
     summaryCard(t.dashboard.expenses, money(summary.totalExpenses), 'expense'),
     el('div', { class: 'summary-card net' }, [
       el('div', { class: 'label' }, t.dashboard.netForMonth(formatMonthLabel(month))),
-      el('div', { class: 'value ' + netClass }, money(summary.net)),
+      el('div', { class: 'value ' + netClass }, money(net)),
     ]),
   ]);
 }
