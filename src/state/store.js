@@ -978,17 +978,63 @@ export function totalMonthlyBudget() {
 }
 
 /**
+ * Amount allocated to savings (Tabungan) this month.
+ * - percentage: savings% × monthly income.
+ * - fixed: sum of fixed budgets for categories assigned to the savings group.
+ * Savings is money set aside, so it's excluded from spendable income and the
+ * daily budget.
+ * @returns {number}
+ */
+export function savingsAllocation() {
+  const b = state.budget;
+  if (b.method === 'percentage') {
+    return groupBudget('savings');
+  }
+  // fixed: sum fixed budgets of categories in the savings group
+  let sum = 0;
+  for (const c of state.categories) {
+    if (c.budgetGroup === 'savings') sum += (b.fixedByCategory && b.fixedByCategory[c.id]) || 0;
+  }
+  return sum;
+}
+
+/**
+ * Spendable income for a month = (budget's expected monthly income + this
+ * month's actual income transactions) − savings allocation. Savings is not
+ * counted as spendable (Req: Beranda pemasukan excludes tabungan).
+ * @param {string} [month]
+ * @returns {number}
+ */
+export function spendableIncome(month = state.selectedMonth) {
+  const base = state.budget.monthlyIncome || 0;
+  let actualIncome = 0;
+  for (const tx of selectTransactionsForMonth(month)) {
+    if (tx.type === 'income') actualIncome += tx.amount;
+  }
+  return Math.max(0, base + actualIncome - savingsAllocation());
+}
+
+/**
+ * Spendable monthly budget = total budget − savings allocation. This is the
+ * pool the daily budget draws from (savings is set aside, not spent).
+ * @returns {number}
+ */
+export function spendableMonthlyBudget() {
+  return Math.max(0, totalMonthlyBudget() - savingsAllocation());
+}
+
+/**
  * Today's remaining daily budget (Req 22.3):
- * (total monthly budget − month-to-date expenses) ÷ remaining days in month.
- * Returns null when no budget is set or there are no remaining days.
+ * (spendable monthly budget − month-to-date expenses) ÷ remaining days in
+ * month. Savings is excluded from the budget pool. Returns null when no
+ * budget is set or there are no remaining days.
  * @returns {number|null}
  */
 export function dailyBudgetRemaining() {
   if (!hasBudget()) return null;
   const now = new Date();
   const monthKey = currentMonth();
-  // Only meaningful for the current month.
-  const total = totalMonthlyBudget();
+  const total = spendableMonthlyBudget();
   if (total <= 0) return null;
 
   let spent = 0;

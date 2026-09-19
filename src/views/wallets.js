@@ -9,7 +9,7 @@
  */
 import { el } from '../lib/dom.js';
 import * as store from '../state/store.js';
-import { money, parseAmount } from '../lib/format.js';
+import { money, parseAmount, groupDigits } from '../lib/format.js';
 import { t } from '../lib/i18n.js';
 import { icon, walletTypeIcon } from '../lib/icons.js';
 import { openModal, closeModal, confirmDialog } from './modal.js';
@@ -256,7 +256,7 @@ function openWalletForm(existing) {
   const form = {
     name: existing ? existing.name : '',
     type: /** @type {WalletType} */ (existing ? existing.type : 'bank'),
-    balance: existing ? String(existing.balance) : '',
+    balance: existing ? groupDigits(String(existing.balance)) : '',
     accountNumber: existing && existing.accountNumber ? existing.accountNumber : '',
   };
   /** @type {Record<string,string>} */
@@ -284,13 +284,15 @@ function openWalletForm(existing) {
     );
 
     const balanceInput = el('input', {
-      type: 'number',
+      type: 'text',
       inputmode: 'numeric',
-      step: '1',
       value: form.balance,
       placeholder: t.tx.amountPlaceholder,
       class: errors.balance ? 'invalid' : '',
-      onInput: (e) => (form.balance = e.target.value),
+      onInput: (e) => {
+        e.target.value = groupDigits(e.target.value);
+        form.balance = e.target.value;
+      },
     });
 
     const acctInput = el('input', {

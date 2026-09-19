@@ -46,14 +46,15 @@ function glanceCard(summary, hidden) {
     : null;
   const hasBudget = dailyRemaining != null && Number.isFinite(dailyRemaining);
 
-  // Progress: expenses relative to income for the month (clamped 0–100%).
+  // Progress: expenses relative to spendable income for the month (0–100%).
+  const spendable = store.spendableIncome();
   const ratio =
-    summary.totalIncome > 0
-      ? Math.min(1, summary.totalExpenses / summary.totalIncome)
+    spendable > 0
+      ? Math.min(1, summary.totalExpenses / spendable)
       : summary.totalExpenses > 0
       ? 1
       : 0;
-  const over = summary.totalIncome > 0 && summary.totalExpenses > summary.totalIncome;
+  const over = spendable > 0 && summary.totalExpenses > spendable;
 
   const amountText = !hasBudget
     ? t.beranda.budgetBelumDiatur
@@ -87,11 +88,12 @@ function glanceCard(summary, hidden) {
       el('span', {}, t.beranda.budgetHarianTersisa),
     ]),
 
-    // Income / expense columns
+    // Income / expense columns. Pemasukan reflects spendable income
+    // (expected + actual − savings); savings is set aside, not spendable.
     el('div', { class: 'glance-io' }, [
       el('div', { class: 'glance-io-col' }, [
         el('div', { class: 'glance-io-label' }, t.beranda.pemasukan),
-        el('div', { class: 'glance-io-val income' }, hidden ? t.wallet.hidden : money(summary.totalIncome)),
+        el('div', { class: 'glance-io-val income' }, hidden ? t.wallet.hidden : money(store.spendableIncome())),
       ]),
       el('div', { class: 'glance-io-col' }, [
         el('div', { class: 'glance-io-label' }, t.beranda.pengeluaran),
