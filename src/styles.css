@@ -55,6 +55,7 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   overscroll-behavior-y: none;
+  overflow-x: hidden; /* never allow horizontal scrolling */
 }
 
 .app {
@@ -104,6 +105,8 @@ body {
   max-width: 720px;
   width: 100%;
   margin: 0 auto;
+  overflow-x: hidden;
+  min-width: 0;
 }
 
 /* ---- Bottom navigation ------------------------------------- */
@@ -220,6 +223,7 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 14px 16px;
+  min-width: 0; /* allow the grid track to shrink so long values don't overflow */
 }
 
 .summary-card.net {
@@ -233,9 +237,12 @@ body {
 }
 
 .summary-card .value {
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   font-weight: 650;
   font-variant-numeric: tabular-nums;
+  /* Keep large amounts inside the card instead of forcing horizontal scroll. */
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .value.income {
@@ -1679,17 +1686,16 @@ textarea.invalid {
 }
 
 .cal-cell {
-  min-height: 40px;
+  min-height: 42px;
   border-radius: 6px;
-  padding: 3px 4px;
+  padding: 3px 2px;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   justify-content: flex-start;
   gap: 1px;
   color: var(--text);
   font-variant-numeric: tabular-nums;
-  overflow: hidden;
 }
 
 .cal-day {
@@ -1699,11 +1705,14 @@ textarea.invalid {
 }
 
 .cal-amt {
-  font-size: 0.6rem;
+  font-size: 0.55rem;
   font-weight: 600;
   color: var(--expense);
-  line-height: 1.1;
+  line-height: 1.05;
+  width: 100%;
   white-space: nowrap;
+  overflow: visible;
+  letter-spacing: -0.02em;
 }
 
 .cal-cell.empty {

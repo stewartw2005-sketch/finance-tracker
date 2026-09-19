@@ -4,16 +4,35 @@
  *  formatting (Req 12.5). */
 import { locale } from './i18n.js';
 
+/** Indonesian Western time (WIB) is UTC+7, no DST. */
+const WIB_OFFSET_MIN = 7 * 60;
+
 /**
- * Today's date as ISO 'YYYY-MM-DD' in local time.
- * @returns {string}
+ * "Now" as a Date whose UTC fields represent the WIB wall clock. Using the
+ * getUTC* accessors on the result yields WIB year/month/day/hours. This makes
+ * "today" consistent regardless of the device's timezone (Req: timestamps WIB).
+ * @param {Date} [base]
+ * @returns {Date}
  */
-export function todayISO() {
-  return toISODate(new Date());
+export function nowWIB(base = new Date()) {
+  return new Date(base.getTime() + WIB_OFFSET_MIN * 60 * 1000);
 }
 
 /**
- * Format a Date as local 'YYYY-MM-DD'.
+ * Today's date as ISO 'YYYY-MM-DD' in WIB.
+ * @returns {string}
+ */
+export function todayISO() {
+  const d = nowWIB();
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * Format a Date as local 'YYYY-MM-DD' (used for arbitrary dates, e.g. the
+ * "yesterday" helper). Uses the Date's local fields.
  * @param {Date} d
  * @returns {string}
  */
@@ -25,11 +44,28 @@ export function toISODate(d) {
 }
 
 /**
- * Current month key 'YYYY-MM' in local time.
+ * Current month key 'YYYY-MM' in WIB.
  * @returns {string}
  */
 export function currentMonth() {
   return todayISO().slice(0, 7);
+}
+
+/**
+ * Current day-of-month (1-based) in WIB.
+ * @returns {number}
+ */
+export function todayDayOfMonth() {
+  return nowWIB().getUTCDate();
+}
+
+/**
+ * Number of days in the current WIB month.
+ * @returns {number}
+ */
+export function daysInCurrentMonth() {
+  const d = nowWIB();
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
 }
 
 /**

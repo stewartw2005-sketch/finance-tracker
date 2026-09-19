@@ -37,14 +37,21 @@ export const DEFAULT_BUDGET = /** @type {import('../types.js').BudgetSettings} *
 
 /** Default categories seeded on first run (Req 5.1). Stable slug ids. */
 export const DEFAULT_CATEGORIES = /** @type {Category[]} */ ([
-  { id: 'food', name: 'Food', isDefault: true },
-  { id: 'transport', name: 'Transport', isDefault: true },
-  { id: 'rent', name: 'Rent', isDefault: true },
-  { id: 'bills', name: 'Bills', isDefault: true },
-  { id: 'shopping', name: 'Shopping', isDefault: true },
-  { id: 'entertainment', name: 'Entertainment', isDefault: true },
-  { id: 'income', name: 'Income', isDefault: true },
-  { id: 'other', name: 'Other', isDefault: true },
+  // Expense categories
+  { id: 'food', name: 'Food', isDefault: true, kind: 'expense' },
+  { id: 'transport', name: 'Transport', isDefault: true, kind: 'expense' },
+  { id: 'rent', name: 'Rent', isDefault: true, kind: 'expense' },
+  { id: 'bills', name: 'Bills', isDefault: true, kind: 'expense' },
+  { id: 'shopping', name: 'Shopping', isDefault: true, kind: 'expense' },
+  { id: 'entertainment', name: 'Entertainment', isDefault: true, kind: 'expense' },
+  { id: 'other', name: 'Other', isDefault: true, kind: 'expense' },
+  // Income categories
+  { id: 'income', name: 'Income', isDefault: true, kind: 'income' },
+  { id: 'gaji', name: 'Salary', isDefault: true, kind: 'income' },
+  { id: 'uang-jajan', name: 'Allowance', isDefault: true, kind: 'income' },
+  { id: 'reimburse', name: 'Reimbursement', isDefault: true, kind: 'income' },
+  { id: 'bonus', name: 'Bonus', isDefault: true, kind: 'income' },
+  { id: 'hadiah', name: 'Gift', isDefault: true, kind: 'income' },
 ]);
 
 /** @type {Promise<IDBDatabase|null>|null} */
@@ -183,19 +190,41 @@ export async function deleteCategory(id) {
 }
 
 /**
- * Seed default categories if the store is empty. Returns the full category
- * list after seeding. Never throws — on failure returns the in-memory
- * defaults so the app remains usable (Req 5.1, 9.3).
+ * Seed default categories if the store is empty; otherwise migrate existing
+ * categories: backfill a `kind` (defaults use the known mapping, others
+ * default to 'expense') and add any newly-introduced income defaults that are
+ * missing. Returns the full category list. Never throws (Req 5.1, 9.3).
  * @returns {Promise<Category[]>}
  */
 export async function seedDefaultCategoriesIfEmpty() {
   try {
-    const existing = await getAllCategories();
-    if (existing.length > 0) return existing;
-    for (const c of DEFAULT_CATEGORIES) {
-      await addCategory(c);
+    let existing = await getAllCategories();
+
+    // First run: seed everything.
+    if (existing.length === 0) {
+      for (const c of DEFAULT_CATEGORIES) await addCategory(c);
+      return DEFAULT_CATEGORIES.slice();
     }
-    return DEFAULT_CATEGORIES.slice();
+
+    // Migration: backfill `kind` on categories that lack it.
+    const defaultKindById = new Map(DEFAULT_CATEGORIES.map((c) => [c.id, c.kind]));
+    for (const c of existing) {
+      if (!c.kind) {
+        c.kind = defaultKindById.get(c.id) || 'expense';
+        await addCategory(c);
+      }
+    }
+
+    // Migration: add newly-introduced default income categories if missing.
+    const haveIds = new Set(existing.map((c) => c.id));
+    for (const c of DEFAULT_CATEGORIES) {
+      if (!haveIds.has(c.id)) {
+        await addCategory(c);
+        existing.push(c);
+      }
+    }
+
+    return existing;
   } catch {
     return DEFAULT_CATEGORIES.slice();
   }
