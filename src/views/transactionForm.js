@@ -7,7 +7,7 @@ import { el } from '../lib/dom.js';
 import { openModal, closeModal } from './modal.js';
 import * as store from '../state/store.js';
 import { validateTransaction } from '../lib/validation.js';
-import { parseAmount } from '../lib/format.js';
+import { parseAmount, groupDigits } from '../lib/format.js';
 import { todayISO } from '../lib/dates.js';
 import { t } from '../lib/i18n.js';
 
@@ -29,9 +29,9 @@ export function openTransactionForm(existing) {
     (primary ? primary.id : '') ||
     (wallets[0] ? wallets[0].id : '');
 
-  // Working copy of form values.
+  // Working copy of form values. Amount is stored as a grouped display string.
   const form = {
-    amount: existing ? String(existing.amount) : '',
+    amount: existing ? groupDigits(String(existing.amount)) : '',
     type: /** @type {'income'|'expense'} */ (existing ? existing.type : 'expense'),
     categoryId: existing ? existing.categoryId : '',
     date: existing ? existing.date : todayISO(),
@@ -53,16 +53,17 @@ export function openTransactionForm(existing) {
       typeButton('income', t.tx.income),
     ]);
 
-    // Amount (whole Rupiah)
+    // Amount (whole Rupiah, live-grouped with dots)
     const amountInput = el('input', {
-      type: 'number',
+      type: 'text',
       inputmode: 'numeric',
-      step: '1',
-      min: '0',
       placeholder: t.tx.amountPlaceholder,
       value: form.amount,
       class: errors.amount ? 'invalid' : '',
-      onInput: (e) => (form.amount = e.target.value),
+      onInput: (e) => {
+        e.target.value = groupDigits(e.target.value);
+        form.amount = e.target.value;
+      },
     });
 
     // Category select

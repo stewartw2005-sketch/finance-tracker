@@ -8,7 +8,7 @@
  */
 import { el } from '../lib/dom.js';
 import * as store from '../state/store.js';
-import { money, parseAmount } from '../lib/format.js';
+import { money, parseAmount, groupDigits } from '../lib/format.js';
 import { t } from '../lib/i18n.js';
 import { icon } from '../lib/icons.js';
 import { openModal, closeModal, confirmDialog } from './modal.js';
@@ -122,7 +122,7 @@ function openAssetForm(existing) {
   const form = {
     name: existing ? existing.name : '',
     assetClass: /** @type {AssetClass} */ (existing ? existing.assetClass : 'liquid'),
-    value: existing ? String(existing.value) : '',
+    value: existing ? groupDigits(String(existing.value)) : '',
   };
   /** @type {Record<string,string>} */
   let errors = {};
@@ -146,14 +146,15 @@ function openAssetForm(existing) {
       ]
     );
     const valueInput = el('input', {
-      type: 'number',
+      type: 'text',
       inputmode: 'numeric',
-      step: '1',
-      min: '0',
       value: form.value,
       placeholder: t.tx.amountPlaceholder,
       class: errors.value ? 'invalid' : '',
-      onInput: (e) => (form.value = e.target.value),
+      onInput: (e) => {
+        e.target.value = groupDigits(e.target.value);
+        form.value = e.target.value;
+      },
     });
     content.append(
       field(t.aset.name, nameInput, errors.name),

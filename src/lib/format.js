@@ -57,3 +57,31 @@ export function parseAmount(input) {
   if (cleaned === '' || !/^-?\d+$/.test(cleaned)) return NaN;
   return parseInt(cleaned, 10);
 }
+
+/**
+ * Group a raw amount string with `.` thousands separators for display in an
+ * input field, e.g. "500000" -> "500.000". Non-digits are stripped; an empty
+ * or all-zero-stripped string returns ''. A leading '-' is preserved.
+ * @param {string} raw
+ * @returns {string}
+ */
+export function groupDigits(raw) {
+  let s = String(raw == null ? '' : raw);
+  const neg = s.trim().startsWith('-');
+  const digits = s.replace(/\D/g, '');
+  if (digits === '') return '';
+  const grouped = digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return (neg ? '-' : '') + grouped;
+}
+
+/**
+ * Wire a text input so it live-formats with `.` thousands separators while
+ * keeping the caret reasonable. The input should be type="text"
+ * inputmode="numeric". Returns nothing; attaches an input listener.
+ * @param {HTMLInputElement} input
+ */
+export function attachAmountFormatting(input) {
+  input.addEventListener('input', () => {
+    input.value = groupDigits(input.value);
+  });
+}

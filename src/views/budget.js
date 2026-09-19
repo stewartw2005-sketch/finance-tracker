@@ -7,7 +7,7 @@
  */
 import { el } from '../lib/dom.js';
 import * as store from '../state/store.js';
-import { money, parseAmount } from '../lib/format.js';
+import { money, parseAmount, groupDigits } from '../lib/format.js';
 import { t } from '../lib/i18n.js';
 
 /** Budget groups in display order. */
@@ -42,12 +42,11 @@ export function renderBudget(container) {
 /** Expected monthly income input. */
 function incomeCard(budget) {
   const input = el('input', {
-    type: 'number',
+    type: 'text',
     inputmode: 'numeric',
-    step: '1',
-    min: '0',
-    value: budget.monthlyIncome ? String(budget.monthlyIncome) : '',
+    value: budget.monthlyIncome ? groupDigits(String(budget.monthlyIncome)) : '',
     placeholder: t.tx.amountPlaceholder,
+    onInput: (e) => (e.target.value = groupDigits(e.target.value)),
     onChange: (e) => store.setMonthlyIncome(parseAmount(e.target.value) || 0),
   });
   return el('div', { class: 'card' }, [
@@ -88,38 +87,24 @@ function percentageSection(budget, spendingCats) {
   const draft = sliderDraft;
   const wrap = el('div', { class: 'card' });
 
-  function rebuild() {
-    wrap.textContent = '';
-    const rows = GROUPS.map((g) => sliderRow(g));
-    const totalNode = el(
-      'div',
-      { class: 'budget-total' + (validNow() ? '' : ' invalid') },
-      t.budget.total(currentTotal())
-    );
-    const saveBtn = el(
-      'button',
-      {
-        class: 'btn primary full',
-        disabled: validNow() ? undefined : true,
-        onClick: () => {
-          if (!validNow()) return;
-          store.setGroupPercents({ ...draft });
-          store.showNotice(t.budget.saved);
-        },
+  // Keep references so dragging updates values in place (smooth) rather than
+  // rebuilding the slider elements (which would interrupt the drag).
+  /** @type {Record<string, HTMLElement>} */
+  const valEls = {};
+  const totalNode = el('div', {});
+  const warnNode = el('div', { class: 'field-error' });
+  const saveBtn = el(
+    'button',
+    {
+      class: 'btn primary full',
+      onClick: () => {
+        if (!validNow()) return;
+        store.setGroupPercents({ ...draft });
+        store.showNotice(t.budget.saved);
       },
-      t.app.save
-    );
-
-    // Only include the warning when invalid — never append null.
-    const children = [
-      el('div', { class: 'section-title', style: 'margin-top:0' }, t.budget.groupsTitle),
-      ...rows,
-      totalNode,
-    ];
-    if (!validNow()) children.push(el('div', { class: 'field-error' }, t.budget.mustTotal100));
-    children.push(saveBtn);
-    for (const child of children) wrap.appendChild(child);
-  }
+    },
+    t.app.save
+  );
 
   function currentTotal() {
     return draft.needs + draft.wants + draft.savings;
@@ -128,9 +113,26 @@ function percentageSection(budget, spendingCats) {
     return currentTotal() === 100;
   }
 
+  /** Update value labels, total, warning, and save state without rebuilding. */
+  function refresh() {
+    for (const g of GROUPS) {
+      const rupiah = Math.round((draft[g] / 100) * (budget.monthlyIncome || 0));
+      valEls[g].textContent = `${draft[g]}% · ${money(rupiah)}`;
+    }
+    const valid = validNow();
+    totalNode.className = 'budget-total' + (valid ? '' : ' invalid');
+    totalNode.textContent = t.budget.total(currentTotal());
+    warnNode.textContent = valid ? '' : t.budget.mustTotal100;
+    warnNode.style.display = valid ? 'none' : '';
+    if (valid) saveBtn.removeAttribute('disabled');
+    else saveBtn.setAttribute('disabled', 'true');
+  }
+
   function sliderRow(g) {
     const label =
       g === 'needs' ? t.budget.needs : g === 'wants' ? t.budget.wants : t.budget.savings;
+    const valEl = el('span', { class: 'budget-slider-val' });
+    valEls[g] = valEl;
     const range = el('input', {
       type: 'range',
       min: '0',
@@ -138,27 +140,31 @@ function percentageSection(budget, spendingCats) {
       step: '1',
       value: String(draft[g]),
       class: 'budget-slider',
+      // Update in place on every input tick for a smooth, finger-following drag.
       onInput: (e) => {
         draft[g] = parseInt(e.target.value, 10) || 0;
-        rebuild();
+        refresh();
       },
     });
-    const rupiah = Math.round((draft[g] / 100) * (budget.monthlyIncome || 0));
     return el('div', { class: 'budget-slider-row' }, [
       el('div', { class: 'budget-slider-head' }, [
         el('span', { class: 'budget-slider-label' }, label),
-        el('span', { class: 'budget-slider-val' }, `${draft[g]}% · ${money(rupiah)}`),
+        valEl,
       ]),
       range,
     ]);
   }
 
-  rebuild();
+  wrap.append(
+    el('div', { class: 'section-title', style: 'margin-top:0' }, t.budget.groupsTitle),
+    ...GROUPS.map((g) => sliderRow(g)),
+    totalNode,
+    warnNode,
+    saveBtn
+  );
+  refresh();
 
-  return el('div', {}, [
-    wrap,
-    assignSection(spendingCats),
-  ]);
+  return el('div', {}, [wrap, assignSection(spendingCats)]);
 }
 
 /**
@@ -199,12 +205,11 @@ function assignSection(spendingCats) {
           store.getBudget().groupCategoryAmounts[c.id];
         const computed = store.categoryBudget(c.id);
         const amountInput = el('input', {
-          type: 'number',
+          type: 'text',
           inputmode: 'numeric',
-          step: '1',
-          min: '0',
-          value: stored ? String(stored) : '',
+          value: stored ? groupDigits(String(stored)) : '',
           placeholder: money(computed).replace(/\u00a0/g, ' '),
+          onInput: (e) => (e.target.value = groupDigits(e.target.value)),
           onChange: (e) => store.setCategoryAmount(c.id, parseAmount(e.target.value) || 0),
         });
         children.push(
@@ -233,12 +238,11 @@ function fixedSection(spendingCats) {
     { class: 'assign-list' },
     spendingCats.map((c) => {
       const input = el('input', {
-        type: 'number',
+        type: 'text',
         inputmode: 'numeric',
-        step: '1',
-        min: '0',
-        value: budget.fixedByCategory[c.id] ? String(budget.fixedByCategory[c.id]) : '',
+        value: budget.fixedByCategory[c.id] ? groupDigits(String(budget.fixedByCategory[c.id])) : '',
         placeholder: t.tx.amountPlaceholder,
+        onInput: (e) => (e.target.value = groupDigits(e.target.value)),
         onChange: (e) => store.setFixedBudget(c.id, parseAmount(e.target.value) || 0),
       });
       return el('li', { class: 'assign-item' }, [

@@ -43,7 +43,7 @@ html,
 body {
   margin: 0;
   padding: 0;
-  height: 100%;
+  min-height: 100%;
 }
 
 body {
@@ -58,7 +58,8 @@ body {
 }
 
 .app {
-  min-height: 100%;
+  min-height: 100vh;
+  min-height: 100dvh; /* dynamic viewport so short pages fill the screen too */
   display: flex;
   flex-direction: column;
 }
