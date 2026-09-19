@@ -10,7 +10,7 @@
  * @typedef {import('../types.js').CategorySpend} CategorySpend
  */
 import * as db from '../data/db.js';
-import { currentMonth, monthOf, isToday, isYesterday, formatDateLabel, todayISO, prevMonth } from '../lib/dates.js';
+import { currentMonth, monthOf, isToday, isYesterday, formatDateLabel, todayISO, prevMonth, daysInCurrentMonth } from '../lib/dates.js';
 import { makeId } from '../lib/validation.js';
 import { t } from '../lib/i18n.js';
 
@@ -217,11 +217,12 @@ export async function removeTransaction(id) {
 /**
  * Add a custom category. Assumes duplicate check done by caller/UI (Req 5.2).
  * @param {string} name
+ * @param {import('../types.js').TxType} [kind='expense'] - income or expense
  * @returns {Promise<Category>}
  */
-export async function addCategory(name) {
+export async function addCategory(name, kind = 'expense') {
   /** @type {Category} */
-  const cat = { id: makeId(), name: name.trim(), isDefault: false };
+  const cat = { id: makeId(), name: name.trim(), isDefault: false, kind };
   state.categories.push(cat);
   notify();
   try {
@@ -233,13 +234,15 @@ export async function addCategory(name) {
 }
 
 /**
- * Delete a custom category (default categories are protected) (Req 5.5).
+ * Delete a category. Any category (including defaults) may be removed; the UI
+ * confirms and warns when the category is in use. Transactions keep their
+ * categoryId and render as "Tak diketahui" if the category is gone.
  * @param {string} id
  * @returns {Promise<void>}
  */
 export async function removeCategory(id) {
   const cat = state.categories.find((c) => c.id === id);
-  if (!cat || cat.isDefault) return;
+  if (!cat) return;
   state.categories = state.categories.filter((c) => c.id !== id);
   notify();
   try {
@@ -953,6 +956,16 @@ export function categoryName(id) {
 }
 
 /**
+ * Categories for a given transaction kind (income/expense). Categories with
+ * no `kind` are treated as expense for backward compatibility.
+ * @param {import('../types.js').TxType} kind
+ * @returns {import('../types.js').Category[]}
+ */
+export function categoriesByKind(kind) {
+  return state.categories.filter((c) => (c.kind || 'expense') === kind);
+}
+
+/**
  * Count of transactions using a given category (for delete-in-use warning) (Req 5.5).
  * @param {string} categoryId
  * @returns {number}
@@ -1206,32 +1219,55 @@ export function spendableMonthlyBudget() {
 }
 
 /**
- * Today's remaining daily budget (Req 22.3):
- * (spendable monthly budget − month-to-date expenses) ÷ remaining days in
- * month. Savings is excluded from the budget pool. Returns null when no
- * budget is set or there are no remaining days.
+ * The flat daily allowance = (monthly income − savings) ÷ days in the current
+ * month (WIB). This resets each day. Returns null when no budget is set.
+ * @returns {number|null}
+ */
+export function dailyAllowance() {
+  if (!hasBudget()) return null;
+  const pool = spendableMonthlyBudget();
+  if (pool <= 0) return null;
+  const days = daysInCurrentMonth();
+  if (days <= 0) return null;
+  return Math.round(pool / days);
+}
+
+/**
+ * Total expenses recorded today (WIB).
+ * @returns {number}
+ */
+export function todayExpenses() {
+  const today = todayISO();
+  let sum = 0;
+  for (const tx of state.transactions) {
+    if (tx.type === 'expense' && tx.date === today) sum += tx.amount;
+  }
+  return sum;
+}
+
+/**
+ * Total income recorded today (WIB).
+ * @returns {number}
+ */
+export function todayIncome() {
+  const today = todayISO();
+  let sum = 0;
+  for (const tx of state.transactions) {
+    if (tx.type === 'income' && tx.date === today) sum += tx.amount;
+  }
+  return sum;
+}
+
+/**
+ * Today's remaining daily budget: the flat daily allowance minus today's
+ * expenses; resets each day (WIB). Can go negative if you overspend today.
+ * Returns null when no budget is set.
  * @returns {number|null}
  */
 export function dailyBudgetRemaining() {
-  if (!hasBudget()) return null;
-  const now = new Date();
-  const monthKey = currentMonth();
-  const total = spendableMonthlyBudget();
-  if (total <= 0) return null;
-
-  let spent = 0;
-  for (const tx of selectTransactionsForMonth(monthKey)) {
-    if (tx.type === 'expense') spent += tx.amount;
-  }
-  const remainingBudget = total - spent;
-
-  const year = now.getFullYear();
-  const monthIdx = now.getMonth();
-  const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
-  const remainingDays = daysInMonth - now.getDate() + 1; // include today
-  if (remainingDays <= 0) return null;
-
-  return Math.round(remainingBudget / remainingDays);
+  const allowance = dailyAllowance();
+  if (allowance == null) return null;
+  return allowance - todayExpenses();
 }
 
 

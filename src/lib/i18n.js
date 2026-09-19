@@ -357,6 +357,7 @@ export const t = {
     newNameAria: 'Nama kategori baru',
     yourCategories: 'Kategori Anda',
     defaultBadge: 'Bawaan',
+    emptyKind: 'Belum ada kategori.',
     deleteAria: (name) => `Hapus ${name}`,
     nameRequired: 'Masukkan nama kategori.',
     duplicate: 'Kategori itu sudah ada.',
@@ -387,8 +388,13 @@ export const t = {
     bills: 'Tagihan',
     shopping: 'Belanja',
     entertainment: 'Hiburan',
-    income: 'Pemasukan',
     other: 'Lainnya',
+    income: 'Pemasukan',
+    gaji: 'Gaji',
+    'uang-jajan': 'Uang Jajan',
+    reimburse: 'Reimburse',
+    bonus: 'Bonus',
+    hadiah: 'Hadiah',
   },
 };
 

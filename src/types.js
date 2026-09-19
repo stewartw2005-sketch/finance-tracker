@@ -44,7 +44,8 @@
  * @typedef {Object} Category
  * @property {string} id             - uuid; defaults use stable slugs e.g. 'food'
  * @property {string} name           - display name, unique case-insensitive
- * @property {boolean} isDefault     - default categories cannot be deleted
+ * @property {boolean} isDefault     - whether this is a seeded default category
+ * @property {TxType} [kind]         - 'income' | 'expense' — which transaction type it applies to
  * @property {BudgetGroup} [budgetGroup] - budget group assignment (Kebutuhan/Keinginan/Tabungan)
  */
 

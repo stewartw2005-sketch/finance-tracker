@@ -27,12 +27,24 @@ export function renderBeranda(container, navigate) {
   container.append(
     greetingHeader(),
     glanceCard(summary, hidden),
-    el('div', { class: 'section-title' }, t.beranda.ringkasanBulan),
+    el('div', { class: 'card-head' }, [
+      el('div', { class: 'section-title', style: 'margin:0' }, t.beranda.ringkasanBulan),
+      el(
+        'button',
+        {
+          class: 'saldo-lock',
+          'aria-label': hidden ? t.wallet.showBalance : t.wallet.hideBalance,
+          'aria-pressed': hidden ? 'true' : 'false',
+          onClick: () => store.toggleSaldoHidden(),
+        },
+        icon(hidden ? 'lock' : 'unlock', { size: 18 })
+      ),
+    ]),
     el('label', { class: 'field', style: 'margin-bottom:16px' }, [
       el('span', { class: 'field-label' }, t.dashboard.month),
       monthSelect(),
     ]),
-    monthSummaryGrid(month, summary),
+    monthSummaryGrid(month, summary, hidden),
     comparisonCard(month, hidden),
     calendarCard(month, hidden),
     recentCard(navigate),
@@ -55,14 +67,16 @@ function glanceCard(summary, hidden) {
   const dailyRemaining = store.dailyBudgetRemaining ? store.dailyBudgetRemaining() : null;
   const hasBudget = dailyRemaining != null && Number.isFinite(dailyRemaining);
 
-  const spendable = store.spendableIncome();
+  // Progress: today's expenses relative to the daily allowance (0–100%).
+  const allowance = store.dailyAllowance ? store.dailyAllowance() : null;
+  const todaySpent = store.todayExpenses();
   const ratio =
-    spendable > 0
-      ? Math.min(1, summary.totalExpenses / spendable)
-      : summary.totalExpenses > 0
+    allowance && allowance > 0
+      ? Math.min(1, todaySpent / allowance)
+      : todaySpent > 0
       ? 1
       : 0;
-  const over = spendable > 0 && summary.totalExpenses > spendable;
+  const over = allowance != null && allowance > 0 && todaySpent > allowance;
 
   const amountText = !hasBudget
     ? t.beranda.budgetBelumDiatur
@@ -73,7 +87,16 @@ function glanceCard(summary, hidden) {
   return el('div', { class: 'glance-card' }, [
     el('div', { class: 'glance-label' }, [el('span', {}, t.beranda.sekilasHariIni)]),
     el('div', { class: 'glance-amount-row' }, [
-      el('span', { class: 'glance-amount' + (hasBudget && !hidden ? '' : ' muted') }, amountText),
+      el(
+        'span',
+        {
+          class:
+            'glance-amount' +
+            (hasBudget && !hidden ? '' : ' muted') +
+            (hasBudget && !hidden && dailyRemaining < 0 ? ' negative' : ''),
+        },
+        amountText
+      ),
       el(
         'button',
         {
@@ -86,14 +109,15 @@ function glanceCard(summary, hidden) {
       ),
     ]),
     el('div', { class: 'glance-caption' }, [el('span', {}, t.beranda.budgetHarianTersisa)]),
+    // Today's income / expenses (daily), WIB.
     el('div', { class: 'glance-io' }, [
       el('div', { class: 'glance-io-col' }, [
         el('div', { class: 'glance-io-label' }, t.beranda.pemasukan),
-        el('div', { class: 'glance-io-val income' }, hidden ? t.wallet.hidden : money(store.spendableIncome())),
+        el('div', { class: 'glance-io-val income' }, hidden ? t.wallet.hidden : money(store.todayIncome())),
       ]),
       el('div', { class: 'glance-io-col' }, [
         el('div', { class: 'glance-io-label' }, t.beranda.pengeluaran),
-        el('div', { class: 'glance-io-val expense' }, hidden ? t.wallet.hidden : money(summary.totalExpenses)),
+        el('div', { class: 'glance-io-val expense' }, hidden ? t.wallet.hidden : money(store.todayExpenses())),
       ]),
     ]),
     el(
@@ -108,16 +132,18 @@ function glanceCard(summary, hidden) {
  * @param {string} month @param {import('../types.js').MonthlySummary} summary
  * @returns {HTMLElement}
  */
-function monthSummaryGrid(month, summary) {
-  const income = store.spendableIncome(month);
+function monthSummaryGrid(month, summary, hidden) {
+  // Pemasukan = actual income transactions for the month (starts at 0, grows
+  // as income is added). Saldo Bersih = actual income − expenses.
+  const income = summary.totalIncome;
   const net = income - summary.totalExpenses;
   const netClass = net < 0 ? 'negative' : net > 0 ? 'positive' : '';
   return el('div', { class: 'summary-grid' }, [
-    summaryCard(t.dashboard.income, money(income), 'income'),
-    summaryCard(t.dashboard.expenses, money(summary.totalExpenses), 'expense'),
+    summaryCard(t.dashboard.income, hidden ? t.wallet.hidden : money(income), 'income'),
+    summaryCard(t.dashboard.expenses, hidden ? t.wallet.hidden : money(summary.totalExpenses), 'expense'),
     el('div', { class: 'summary-card net' }, [
       el('div', { class: 'label' }, t.dashboard.netForMonth(formatMonthLabel(month))),
-      el('div', { class: 'value ' + netClass }, money(net)),
+      el('div', { class: 'value ' + netClass }, hidden ? t.wallet.hidden : money(net)),
     ]),
   ]);
 }
@@ -162,6 +188,16 @@ function signedPct(p) {
   return `${sign}${s}%`;
 }
 
+/**
+ * Round an amount so its compact label stays short in a calendar cell:
+ * under 1jt → nearest thousand (e.g. 427.500 → "428rb"); 1jt+ → one decimal jt.
+ * @param {number} n
+ */
+function roundForCell(n) {
+  if (n >= 1_000_000) return n; // moneyShort already uses 1-decimal jt
+  return Math.round(n / 1000) * 1000; // whole-thousand => "NNNrb", no decimal
+}
+
 /** Monthly calendar heatmap of daily net spend (Req 22.5). */
 function calendarCard(month, hidden) {
   const [y, m] = month.split('-').map(Number);
@@ -200,14 +236,14 @@ function calendarCard(month, hidden) {
         [
           el('span', { class: 'cal-day' }, String(day)),
           spend > 0
-            ? el('span', { class: 'cal-amt' }, hidden ? '•••' : '-' + moneyShort(spend))
+            ? el('span', { class: 'cal-amt' }, hidden ? '•••' : '-' + moneyShort(roundForCell(spend)))
             : null,
         ]
       )
     );
   }
 
-  return el('div', { class: 'card' }, [
+  return el('div', { class: 'card', style: 'margin-top:20px' }, [
     el('div', { class: 'section-title', style: 'margin-top:0' }, t.beranda.calendarTitle),
     el('div', { class: 'cal-grid' }, cells),
     el('div', { class: 'field-hint', style: 'margin-top:8px' }, t.beranda.calendarHint),

@@ -66,7 +66,8 @@ export function openTransactionForm(existing) {
       },
     });
 
-    // Category select
+    // Category select — only categories matching the selected type.
+    const kindCategories = store.categoriesByKind(form.type);
     const catSelect = el(
       'select',
       {
@@ -75,7 +76,7 @@ export function openTransactionForm(existing) {
       },
       [
         el('option', { value: '', disabled: true, selected: !form.categoryId }, t.tx.selectCategory),
-        ...categories.map((c) =>
+        ...kindCategories.map((c) =>
           el('option', { value: c.id, selected: c.id === form.categoryId }, store.categoryName(c.id))
         ),
       ]
@@ -136,8 +137,13 @@ export function openTransactionForm(existing) {
         class: form.type === type ? 'active' : '',
         'aria-pressed': form.type === type ? 'true' : 'false',
         onClick: () => {
-          form.type = type;
-          rebuild();
+          if (form.type !== type) {
+            form.type = type;
+            // Clear category if it no longer matches the selected type.
+            const cat = store.getState().categories.find((c) => c.id === form.categoryId);
+            if (!cat || (cat.kind || 'expense') !== type) form.categoryId = '';
+            rebuild();
+          }
         },
       },
       label
