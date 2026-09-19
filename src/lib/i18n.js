@@ -56,6 +56,25 @@ export const t = {
     pemasukan: 'PEMASUKAN',
     pengeluaran: 'PENGELUARAN',
     budgetBelumDiatur: 'Atur budget untuk melihat sisa harian',
+    // greetings (time of day)
+    greetPagi: 'Selamat pagi',
+    greetSiang: 'Selamat siang',
+    greetSore: 'Selamat sore',
+    greetMalam: 'Selamat malam',
+    // dashboard sections
+    calendarTitle: 'Kalender Pengeluaran',
+    calendarHint: 'Warna lebih terang = pengeluaran lebih besar',
+    recentTitle: 'Transaksi Terbaru',
+    seeAll: 'Lihat semua',
+    comparisonTitle: 'Perbandingan',
+    vsLastMonth: 'vs bulan lalu',
+    topExpensesTitle: 'Pengeluaran Terbesar',
+    quickAccessTitle: 'Akses Cepat',
+    noRecent: 'Belum ada transaksi.',
+    // budget group short labels
+    groupNeeds: 'Kebutuhan',
+    groupWants: 'Keinginan',
+    groupSavings: 'Tabungan',
   },
 
   dompet: {

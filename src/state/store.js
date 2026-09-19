@@ -1458,3 +1458,48 @@ export function topExpenses(month = state.selectedMonth, n = 5) {
     .sort((a, b) => b.amount - a.amount)
     .slice(0, n);
 }
+
+
+// ---- Dashboard (Beranda) selectors (Req 22) -------------------------------
+
+/**
+ * Time-of-day greeting in Bahasa Indonesia (Req 22.2).
+ * pagi <11, siang 11–14, sore 15–18, malam otherwise.
+ * @param {Date} [now]
+ * @returns {string}
+ */
+export function greeting(now = new Date()) {
+  const h = now.getHours();
+  if (h < 11) return t.beranda.greetPagi;
+  if (h < 15) return t.beranda.greetSiang;
+  if (h < 19) return t.beranda.greetSore;
+  return t.beranda.greetMalam;
+}
+
+/**
+ * Daily net spend for each day of a month (Req 22.5): a map of day-of-month
+ * (1-based) to net spend (expenses − income) for that day. Positive = net
+ * spending, negative = net income; 0/absent = neutral.
+ * @param {string} [month]
+ * @returns {Map<number, number>}
+ */
+export function dailyNetSpend(month = state.selectedMonth) {
+  /** @type {Map<number, number>} */
+  const map = new Map();
+  for (const tx of selectTransactionsForMonth(month)) {
+    const day = parseInt(tx.date.slice(8, 10), 10);
+    if (!day) continue;
+    const delta = tx.type === 'expense' ? tx.amount : -tx.amount;
+    map.set(day, (map.get(day) || 0) + delta);
+  }
+  return map;
+}
+
+/**
+ * The most recent transactions across all months (Req 22.6).
+ * @param {number} [n=8]
+ * @returns {Transaction[]}
+ */
+export function recentTransactions(n = 8) {
+  return sortRecent(state.transactions).slice(0, n);
+}

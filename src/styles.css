@@ -1619,3 +1619,126 @@ textarea.invalid {
 .report-delta.flat {
   color: var(--text-muted);
 }
+
+
+/* ---- Dashboard (Beranda) ----------------------------------- */
+
+.greeting {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 2px 0 14px;
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 22px 0 10px;
+}
+
+.card-head .section-title {
+  text-transform: uppercase;
+}
+
+/* Comparison rows */
+.cmp-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+}
+
+.cmp-label {
+  color: var(--text-muted);
+}
+
+.cmp-delta {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.cmp-delta.good { color: var(--income); }
+.cmp-delta.bad { color: var(--expense); }
+.cmp-delta.flat { color: var(--text-muted); }
+
+/* Calendar heatmap */
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+}
+
+.cal-dow {
+  text-align: center;
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  padding-bottom: 2px;
+}
+
+.cal-cell {
+  aspect-ratio: 1 / 1;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  font-size: 0.72rem;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.cal-cell.empty {
+  background: transparent !important;
+}
+
+.cal-cell.today {
+  outline: 2px solid var(--accent-nav);
+  outline-offset: -2px;
+  font-weight: 700;
+}
+
+/* Budget-group tag on top expenses */
+.group-tag {
+  font-size: 0.68rem;
+  padding: 1px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+.group-tag.needs { color: #60a5fa; border-color: color-mix(in srgb, #60a5fa 45%, transparent); }
+.group-tag.wants { color: #fbbf24; border-color: color-mix(in srgb, #fbbf24 45%, transparent); }
+.group-tag.savings { color: var(--income); border-color: color-mix(in srgb, var(--income) 45%, transparent); }
+
+/* Quick-access grid */
+.quick-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
+  gap: 10px;
+}
+
+.quick-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.quick-item:active {
+  background: var(--surface-3);
+}
+
+.quick-icon {
+  color: var(--accent-nav);
+  display: grid;
+  place-items: center;
+}
+
+.quick-label {
+  font-size: 0.78rem;
+  text-align: center;
+}
