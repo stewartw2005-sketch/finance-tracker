@@ -27,6 +27,7 @@ const PATHS = {
   lock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
   unlock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.4-2"/>',
   close: '<path d="M6 6l12 12"/><path d="M18 6 6 18"/>',
+  chevronDown: '<path d="M6 9l6 6 6-6"/>',
 
   // Wallet types (used as small leading glyphs)
   bank: '<path d="M4 10h16"/><path d="M12 3 4 7h16l-8-4Z"/><path d="M6 10v7"/><path d="M10 10v7"/><path d="M14 10v7"/><path d="M18 10v7"/><path d="M4 20h16"/>',

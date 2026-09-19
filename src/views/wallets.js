@@ -1,9 +1,9 @@
 // @ts-check
 /**
  * Dompet (wallets/accounts) — Phase 2 + polish (Req 14).
- * Total saldo card with privacy lock, wallet list with a per-wallet actions
- * menu (edit / set primary / rekening + copy / delete), and add/edit/delete.
- * Line-style icons only (no emoji). Credit-card wallets show negative saldo.
+ * Wallet list where tapping a row expands an inline panel beneath it with the
+ * rekening (+ copy) and actions (set primary / edit / delete). Line-style
+ * icons only (no emoji). Credit-card wallets show negative saldo.
  * @typedef {import('../types.js').Wallet} Wallet
  * @typedef {import('../types.js').WalletType} WalletType
  */
@@ -16,10 +16,8 @@ import { openModal, closeModal, confirmDialog } from './modal.js';
 
 const WALLET_TYPES = /** @type {WalletType[]} */ (['bank', 'ewallet', 'cash', 'credit']);
 
-/** Currently open actions menu (wallet id) so only one is open at a time. */
-let openMenuId = null;
-/** Whether an outside-click close handler is currently bound. */
-let outsideHandlerBound = false;
+/** Currently expanded wallet row (wallet id) so only one is open at a time. */
+let expandedId = null;
 
 /**
  * Render the Dompet view.
@@ -27,30 +25,10 @@ let outsideHandlerBound = false;
  */
 export function renderWallets(container) {
   const rows = store.walletsWithSaldo();
-  const total = store.totalSaldo();
   const hidden = store.isSaldoHidden();
 
-  // Close any open actions menu when tapping elsewhere (registered once).
-  if (openMenuId && !outsideHandlerBound) {
-    outsideHandlerBound = true;
-    const closeOnOutside = () => {
-      if (openMenuId) {
-        openMenuId = null;
-        outsideHandlerBound = false;
-        document.removeEventListener('click', closeOnOutside);
-        rerender();
-      } else {
-        outsideHandlerBound = false;
-        document.removeEventListener('click', closeOnOutside);
-      }
-    };
-    // Defer so the opening click doesn't immediately close it.
-    setTimeout(() => document.addEventListener('click', closeOnOutside), 0);
-  }
-
   container.append(
-    totalSaldoCard(total, hidden),
-    el('div', { style: 'margin:14px 0' },
+    el('div', { style: 'margin:4px 0 14px' },
       el('button', { class: 'btn primary full', onClick: () => openWalletForm() }, '+ ' + t.wallet.addButton)
     ),
     el('div', { class: 'section-title' }, t.wallet.yourWallets),
@@ -64,33 +42,8 @@ export function renderWallets(container) {
 }
 
 /**
- * Total saldo card with a privacy lock toggle.
- * @param {number} total @param {boolean} hidden
- */
-function totalSaldoCard(total, hidden) {
-  return el('div', { class: 'saldo-card' }, [
-    el('div', { class: 'saldo-head' }, [
-      el('span', { class: 'saldo-label' }, t.wallet.totalSaldo),
-      el(
-        'button',
-        {
-          class: 'saldo-lock',
-          'aria-label': hidden ? t.wallet.showBalance : t.wallet.hideBalance,
-          'aria-pressed': hidden ? 'true' : 'false',
-          onClick: () => store.toggleSaldoHidden(),
-        },
-        icon(hidden ? 'lock' : 'unlock', { size: 18 })
-      ),
-    ]),
-    el(
-      'div',
-      { class: 'saldo-value' + (total < 0 ? ' negative' : '') },
-      hidden ? t.wallet.hidden : money(total)
-    ),
-  ]);
-}
-
-/**
+ * A wallet row: the whole row is a button that toggles an inline dropdown
+ * panel expanding beneath it.
  * @param {Wallet} w @param {number} saldo @param {boolean} hidden
  * @returns {HTMLElement}
  */
@@ -103,53 +56,49 @@ function walletRow(w, saldo, hidden) {
     ? `${money(saldo)} · ${t.wallet.owed}`
     : money(saldo);
 
-  const menu = actionsMenu(w);
+  const isOpen = expandedId === w.id;
 
-  return el('li', { class: 'wallet-item' }, [
-    el('span', { class: 'wallet-icon', 'aria-hidden': 'true' }, icon(walletTypeIcon(w.type), { size: 22 })),
-    el('div', { class: 'wallet-main' }, [
-      el('div', { class: 'wallet-name-row' }, [
-        el('span', { class: 'wallet-name' }, w.name),
-        w.isPrimary ? el('span', { class: 'badge primary-badge' }, t.wallet.primaryBadge) : null,
-      ]),
-      el('div', { class: 'wallet-type' }, t.wallet.types[w.type] || ''),
-    ]),
-    el('div', { class: 'wallet-right' }, [
-      el('span', { class: 'wallet-saldo ' + (negative ? 'negative' : '') }, saldoText),
-      menu.button,
-    ]),
-    menu.panel,
-  ]);
-}
-
-/**
- * Build the per-wallet actions dropdown (button + panel).
- * @param {Wallet} w
- * @returns {{ button: HTMLElement, panel: HTMLElement }}
- */
-function actionsMenu(w) {
-  const isOpen = openMenuId === w.id;
-
-  const button = el(
+  // The clickable row header (the whole row is the toggle).
+  const rowBtn = el(
     'button',
     {
-      class: 'wallet-menu-btn',
-      'aria-label': t.wallet.actionsAria,
+      class: 'wallet-row' + (isOpen ? ' open' : ''),
       'aria-expanded': isOpen ? 'true' : 'false',
-      onClick: (e) => {
-        e.stopPropagation();
-        openMenuId = isOpen ? null : w.id;
+      onClick: () => {
+        expandedId = isOpen ? null : w.id;
         rerender();
       },
     },
-    icon('dots', { size: 20 })
+    [
+      el('span', { class: 'wallet-icon', 'aria-hidden': 'true' }, icon(walletTypeIcon(w.type), { size: 22 })),
+      el('div', { class: 'wallet-main' }, [
+        el('div', { class: 'wallet-name-row' }, [
+          el('span', { class: 'wallet-name' }, w.name),
+          w.isPrimary ? el('span', { class: 'badge primary-badge' }, t.wallet.primaryBadge) : null,
+        ]),
+        el('div', { class: 'wallet-type' }, t.wallet.types[w.type] || ''),
+      ]),
+      el('span', { class: 'wallet-saldo ' + (negative ? 'negative' : '') }, saldoText),
+      el(
+        'span',
+        { class: 'wallet-chevron' + (isOpen ? ' open' : ''), 'aria-hidden': 'true' },
+        icon('chevronDown', { size: 18 })
+      ),
+    ]
   );
 
-  if (!isOpen) {
-    return { button, panel: el('div', { style: 'display:none' }) };
-  }
+  const children = [rowBtn];
+  if (isOpen) children.push(walletPanel(w));
 
-  // Rekening row: read-only value + copy button.
+  return el('li', { class: 'wallet-item' + (isOpen ? ' open' : '') }, children);
+}
+
+/**
+ * The inline dropdown panel shown beneath an expanded wallet row.
+ * @param {Wallet} w
+ * @returns {HTMLElement}
+ */
+function walletPanel(w) {
   const acct = w.accountNumber || '';
   const copyBtn = el(
     'button',
@@ -173,39 +122,33 @@ function actionsMenu(w) {
   ]);
 
   const items = [];
-  // Set as primary (only if not already primary)
   if (!w.isPrimary) {
     items.push(
       menuAction('star', t.wallet.setPrimary, () => {
-        openMenuId = null;
+        expandedId = null;
         store.setPrimaryWallet(w.id);
       })
     );
   }
   items.push(
     menuAction('edit', t.app.edit, () => {
-      openMenuId = null;
       openWalletForm(w);
     })
   );
-  // Delete (blocked if it's the last wallet)
   const isLast = store.getState().wallets.length <= 1;
   if (!isLast) {
     items.push(
       menuAction('trash', t.app.delete, () => {
-        openMenuId = null;
         confirmDeleteWallet(w);
       }, true)
     );
   }
 
-  const panel = el(
-    'div',
-    { class: 'wallet-menu-panel', onClick: (e) => e.stopPropagation() },
-    [rekeningRow, el('div', { class: 'menu-divider' }), ...items]
-  );
-
-  return { button, panel };
+  return el('div', { class: 'wallet-panel', onClick: (e) => e.stopPropagation() }, [
+    rekeningRow,
+    el('div', { class: 'menu-divider' }),
+    ...items,
+  ]);
 }
 
 /**
