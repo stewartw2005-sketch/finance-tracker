@@ -12,6 +12,7 @@ import { renderBeranda } from './views/beranda.js';
 import { renderWallets } from './views/wallets.js';
 import { renderTransactions } from './views/transactions.js';
 import { renderLainnya } from './views/lainnya.js';
+import { renderBudget } from './views/budget.js';
 import { openTransactionForm } from './views/transactionForm.js';
 
 /**
@@ -105,6 +106,9 @@ function renderActiveView(main) {
       break;
     case 'lainnya':
       renderLainnya(main, setView);
+      break;
+    case 'budget':
+      renderBudget(main);
       break;
     default:
       // Secondary sections not yet implemented in this phase.

@@ -29,6 +29,7 @@ import { t } from '../lib/i18n.js';
  * @property {Transaction[]} transactions
  * @property {Category[]} categories
  * @property {import('../types.js').Wallet[]} wallets
+ * @property {import('../types.js').BudgetSettings} budget
  * @property {string} selectedMonth   - 'YYYY-MM'
  * @property {string} filterCategory  - category id or '' for all
  * @property {TxFilters} txFilters    - advanced Transaksi filters + search
@@ -52,6 +53,14 @@ const state = {
   transactions: [],
   categories: [],
   wallets: [],
+  /** @type {import('../types.js').BudgetSettings} */
+  budget: {
+    id: 'singleton',
+    monthlyIncome: 0,
+    method: 'percentage',
+    groups: { needs: 50, wants: 30, savings: 20 },
+    fixedByCategory: {},
+  },
   selectedMonth: currentMonth(),
   filterCategory: '',
   txFilters: { from: '', to: '', walletId: '', categoryId: '', type: '', search: '' },
@@ -94,9 +103,11 @@ export async function init() {
     // load transactions (post-migration so walletId is populated).
     const wallets = await db.seedDefaultWalletAndMigrate(t.wallet.defaultName);
     const transactions = await db.getAllTransactions();
+    const budget = await db.getBudget();
     state.categories = categories;
     state.wallets = wallets;
     state.transactions = transactions;
+    state.budget = budget;
     state.lastWalletId =
       (wallets.find((w) => w.id === db.DEFAULT_WALLET_ID) || wallets[0] || {}).id || '';
   } catch {
@@ -340,6 +351,77 @@ export async function removeWallet(id) {
   } catch {
     setError(t.errors.walletDeleteFailed);
   }
+}
+
+// ---- Budget mutations (Req 16) --------------------------------------------
+
+/** Persist the current budget settings (write-through). */
+async function persistBudget() {
+  notify();
+  try {
+    await db.saveBudget(state.budget);
+  } catch {
+    setError(t.errors.budgetSaveFailed);
+  }
+}
+
+/** @param {number} income expected monthly income (Rupiah) */
+export function setMonthlyIncome(income) {
+  state.budget = { ...state.budget, monthlyIncome: Math.max(0, Math.round(income) || 0) };
+  return persistBudget();
+}
+
+/** @param {import('../types.js').BudgetMethod} method */
+export function setBudgetMethod(method) {
+  if (method !== 'percentage' && method !== 'fixed') return Promise.resolve();
+  state.budget = { ...state.budget, method };
+  return persistBudget();
+}
+
+/**
+ * Set the three group percentages (Kebutuhan/Keinginan/Tabungan). They should
+ * sum to 100; the UI enforces this before calling (Req 16.3, 16.4).
+ * @param {{needs:number, wants:number, savings:number}} groups
+ */
+export function setGroupPercents(groups) {
+  state.budget = {
+    ...state.budget,
+    groups: {
+      needs: Math.max(0, Math.round(groups.needs) || 0),
+      wants: Math.max(0, Math.round(groups.wants) || 0),
+      savings: Math.max(0, Math.round(groups.savings) || 0),
+    },
+  };
+  return persistBudget();
+}
+
+/**
+ * Assign a category to a budget group (or clear with '' / null) (Req 16.6).
+ * @param {string} categoryId
+ * @param {import('../types.js').BudgetGroup | ''} group
+ */
+export function setCategoryGroup(categoryId, group) {
+  const idx = state.categories.findIndex((c) => c.id === categoryId);
+  if (idx === -1) return Promise.resolve();
+  const updated = { ...state.categories[idx] };
+  if (group) updated.budgetGroup = group;
+  else delete updated.budgetGroup;
+  state.categories[idx] = updated;
+  notify();
+  return db.addCategory(updated).catch(() => setError(t.errors.categorySaveFailed));
+}
+
+/**
+ * Set a fixed per-category budget amount (Req 16.8).
+ * @param {string} categoryId @param {number} amount
+ */
+export function setFixedBudget(categoryId, amount) {
+  const fixed = { ...state.budget.fixedByCategory };
+  const val = Math.max(0, Math.round(amount) || 0);
+  if (val > 0) fixed[categoryId] = val;
+  else delete fixed[categoryId];
+  state.budget = { ...state.budget, fixedByCategory: fixed };
+  return persistBudget();
 }
 
 /** @param {string} month 'YYYY-MM' */
@@ -684,4 +766,132 @@ export function walletsWithSaldo() {
  */
 export function primaryWallet() {
   return state.wallets.find((w) => w.isPrimary);
+}
+
+
+// ---- Budget selectors (Req 16) --------------------------------------------
+
+/** @returns {import('../types.js').BudgetSettings} */
+export function getBudget() {
+  return state.budget;
+}
+
+/** @returns {boolean} true if a usable budget is configured. */
+export function hasBudget() {
+  const b = state.budget;
+  if (b.method === 'percentage') return b.monthlyIncome > 0;
+  // fixed: usable if any category has a positive limit
+  return Object.values(b.fixedByCategory || {}).some((v) => v > 0);
+}
+
+/**
+ * Rupiah budget for a group (percentage method): percent × monthly income.
+ * @param {import('../types.js').BudgetGroup} group
+ * @returns {number}
+ */
+export function groupBudget(group) {
+  const b = state.budget;
+  const pct = (b.groups && b.groups[group]) || 0;
+  return Math.round((pct / 100) * (b.monthlyIncome || 0));
+}
+
+/**
+ * Budget limit for a single category.
+ * - fixed method: the stored per-category amount (0 if none).
+ * - percentage method: the category's group budget split evenly across all
+ *   categories assigned to that group (Req 16.7). Categories with no group
+ *   get 0.
+ * @param {string} categoryId
+ * @returns {number}
+ */
+export function categoryBudget(categoryId) {
+  const b = state.budget;
+  if (b.method === 'fixed') {
+    return (b.fixedByCategory && b.fixedByCategory[categoryId]) || 0;
+  }
+  const cat = state.categories.find((c) => c.id === categoryId);
+  if (!cat || !cat.budgetGroup) return 0;
+  const group = cat.budgetGroup;
+  const peers = state.categories.filter((c) => c.budgetGroup === group);
+  if (peers.length === 0) return 0;
+  return Math.round(groupBudget(group) / peers.length);
+}
+
+/**
+ * Per-category budget progress for a month: spent vs limit (Req 16.9).
+ * Only categories with a positive limit (or with spending) are returned.
+ * @param {string} [month]
+ * @returns {{ categoryId:string, categoryName:string, group:(import('../types.js').BudgetGroup|undefined), spent:number, limit:number, pct:number, over:boolean }[]}
+ */
+export function budgetProgress(month = state.selectedMonth) {
+  const spendMap = new Map();
+  for (const tx of selectTransactionsForMonth(month)) {
+    if (tx.type !== 'expense') continue;
+    spendMap.set(tx.categoryId, (spendMap.get(tx.categoryId) || 0) + tx.amount);
+  }
+  /** @type {ReturnType<typeof budgetProgress>} */
+  const rows = [];
+  for (const c of state.categories) {
+    const limit = categoryBudget(c.id);
+    const spent = spendMap.get(c.id) || 0;
+    if (limit <= 0 && spent <= 0) continue;
+    const pct = limit > 0 ? Math.min(999, Math.round((spent / limit) * 100)) : 0;
+    rows.push({
+      categoryId: c.id,
+      categoryName: categoryName(c.id),
+      group: c.budgetGroup,
+      spent,
+      limit,
+      pct,
+      over: limit > 0 && spent > limit,
+    });
+  }
+  // Sort: over-budget first, then by spent desc.
+  return rows.sort((a, b) => {
+    if (a.over !== b.over) return a.over ? -1 : 1;
+    return b.spent - a.spent;
+  });
+}
+
+/**
+ * Total budgeted amount for the current month.
+ * - percentage: whole monthly income (needs+wants+savings should sum to it)
+ * - fixed: sum of per-category limits
+ * @returns {number}
+ */
+export function totalMonthlyBudget() {
+  const b = state.budget;
+  if (b.method === 'fixed') {
+    return Object.values(b.fixedByCategory || {}).reduce((s, v) => s + (v || 0), 0);
+  }
+  return b.monthlyIncome || 0;
+}
+
+/**
+ * Today's remaining daily budget (Req 22.3):
+ * (total monthly budget − month-to-date expenses) ÷ remaining days in month.
+ * Returns null when no budget is set or there are no remaining days.
+ * @returns {number|null}
+ */
+export function dailyBudgetRemaining() {
+  if (!hasBudget()) return null;
+  const now = new Date();
+  const monthKey = currentMonth();
+  // Only meaningful for the current month.
+  const total = totalMonthlyBudget();
+  if (total <= 0) return null;
+
+  let spent = 0;
+  for (const tx of selectTransactionsForMonth(monthKey)) {
+    if (tx.type === 'expense') spent += tx.amount;
+  }
+  const remainingBudget = total - spent;
+
+  const year = now.getFullYear();
+  const monthIdx = now.getMonth();
+  const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
+  const remainingDays = daysInMonth - now.getDate() + 1; // include today
+  if (remainingDays <= 0) return null;
+
+  return Math.round(remainingBudget / remainingDays);
 }

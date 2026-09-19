@@ -1177,3 +1177,149 @@ textarea.invalid {
   position: sticky;
   top: 0;
 }
+
+
+/* ---- Atur Budget ------------------------------------------- */
+
+.field-hint {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  margin-top: 5px;
+}
+
+.budget-slider-row {
+  margin-bottom: 14px;
+}
+
+.budget-slider-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.budget-slider-label {
+  font-weight: 600;
+}
+
+.budget-slider-val {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.budget-slider {
+  width: 100%;
+  accent-color: var(--accent-nav);
+  height: var(--tap);
+}
+
+.budget-total {
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  margin: 4px 0 10px;
+}
+
+.budget-total.invalid {
+  color: var(--expense);
+}
+
+.assign-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.assign-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+}
+
+.assign-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assign-item select {
+  flex: none;
+  width: auto;
+  min-width: 130px;
+}
+
+/* Progress bars */
+.progress-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.progress-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 5px;
+}
+
+.progress-name {
+  font-weight: 600;
+}
+
+.progress-vals {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.progress-vals.over {
+  color: var(--expense);
+}
+
+.progress-track {
+  height: 8px;
+  border-radius: 6px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 6px;
+  background: var(--accent-nav);
+  transition: width 0.3s ease;
+}
+
+.progress-fill.over {
+  background: var(--expense);
+}
+
+.progress-over {
+  font-size: 0.78rem;
+  color: var(--expense);
+  margin-top: 3px;
+}
+
+/* Lainnya menu icons now hold SVGs */
+.menu-icon {
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+}
+
+.menu-chevron {
+  display: grid;
+  place-items: center;
+}
