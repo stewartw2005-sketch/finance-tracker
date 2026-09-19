@@ -85,6 +85,20 @@
  */
 
 /**
+ * @typedef {'saham' | 'reksadana' | 'kripto' | 'lainnya'} InvestmentType
+ */
+
+/**
+ * @typedef {Object} Investment
+ * @property {string} id             - uuid
+ * @property {string} name           - display name (e.g. "BBCA", "Bitcoin")
+ * @property {InvestmentType} invType - saham | reksadana | kripto | lainnya
+ * @property {number} invested       - amount invested / modal (Rupiah)
+ * @property {number} currentValue   - current value / nilai sekarang (Rupiah)
+ * @property {number} createdAt      - epoch ms
+ */
+
+/**
  * @typedef {Object} MonthlySummary
  * @property {string} month        - 'YYYY-MM'
  * @property {number} totalIncome

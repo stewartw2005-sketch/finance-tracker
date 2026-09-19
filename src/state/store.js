@@ -31,6 +31,7 @@ import { t } from '../lib/i18n.js';
  * @property {import('../types.js').Wallet[]} wallets
  * @property {import('../types.js').Asset[]} assets
  * @property {import('../types.js').Debt[]} debts
+ * @property {import('../types.js').Investment[]} investments
  * @property {import('../types.js').BudgetSettings} budget
  * @property {string} selectedMonth   - 'YYYY-MM'
  * @property {string} filterCategory  - category id or '' for all
@@ -60,6 +61,8 @@ const state = {
   assets: [],
   /** @type {import('../types.js').Debt[]} */
   debts: [],
+  /** @type {import('../types.js').Investment[]} */
+  investments: [],
   /** @type {import('../types.js').BudgetSettings} */
   budget: {
     id: 'singleton',
@@ -115,12 +118,14 @@ export async function init() {
     const budget = await db.getBudget();
     const assets = await db.getAllAssets();
     const debts = await db.getAllDebts();
+    const investments = await db.getAllInvestments();
     state.categories = categories;
     state.wallets = wallets;
     state.transactions = transactions;
     state.budget = budget;
     state.assets = assets;
     state.debts = debts;
+    state.investments = investments;
     state.lastWalletId =
       (wallets.find((w) => w.id === db.DEFAULT_WALLET_ID) || wallets[0] || {}).id || '';
   } catch {
@@ -130,6 +135,7 @@ export async function init() {
     state.transactions = [];
     state.assets = [];
     state.debts = [];
+    state.investments = [];
     state.error = t.errors.loadFailed;
   } finally {
     state.loaded = true;
@@ -579,6 +585,71 @@ export async function removeDebt(id) {
     await db.deleteDebt(id);
   } catch {
     setError(t.errors.debtDeleteFailed);
+  }
+}
+
+// ---- Investment mutations (Req 19) ----------------------------------------
+
+/**
+ * Add an investment holding.
+ * @param {{name:string, invType:import('../types.js').InvestmentType, invested:number, currentValue:number}} data
+ * @returns {Promise<import('../types.js').Investment>}
+ */
+export async function addInvestment(data) {
+  /** @type {import('../types.js').Investment} */
+  const inv = {
+    id: makeId(),
+    name: data.name.trim(),
+    invType: data.invType,
+    invested: Math.max(0, Math.round(data.invested) || 0),
+    currentValue: Math.max(0, Math.round(data.currentValue) || 0),
+    createdAt: Date.now(),
+  };
+  state.investments.push(inv);
+  notify();
+  try {
+    await db.addInvestment(inv);
+  } catch {
+    setError(t.errors.investSaveFailed);
+  }
+  return inv;
+}
+
+/**
+ * Edit an investment holding.
+ * @param {string} id
+ * @param {{name:string, invType:import('../types.js').InvestmentType, invested:number, currentValue:number}} data
+ * @returns {Promise<void>}
+ */
+export async function editInvestment(id, data) {
+  const idx = state.investments.findIndex((v) => v.id === id);
+  if (idx === -1) return;
+  /** @type {import('../types.js').Investment} */
+  const updated = {
+    ...state.investments[idx],
+    name: data.name.trim(),
+    invType: data.invType,
+    invested: Math.max(0, Math.round(data.invested) || 0),
+    currentValue: Math.max(0, Math.round(data.currentValue) || 0),
+  };
+  state.investments[idx] = updated;
+  notify();
+  try {
+    await db.updateInvestment(updated);
+  } catch {
+    setError(t.errors.investUpdateFailed);
+  }
+}
+
+/** @param {string} id @returns {Promise<void>} */
+export async function removeInvestment(id) {
+  if (!state.investments.some((v) => v.id === id)) return;
+  state.investments = state.investments.filter((v) => v.id !== id);
+  notify();
+  try {
+    await db.deleteInvestment(id);
+  } catch {
+    setError(t.errors.investDeleteFailed);
   }
 }
 
@@ -1257,4 +1328,44 @@ export function debtsSorted() {
     if (!!a.dueDate !== !!b.dueDate) return a.dueDate ? -1 : 1;
     return (b.createdAt || 0) - (a.createdAt || 0);
   });
+}
+
+
+// ---- Investment selectors (Req 19) ----------------------------------------
+
+/**
+ * Gain/loss for a single investment holding (Req 19.4).
+ * @param {import('../types.js').Investment} v
+ * @returns {{ gain:number, gainPct:number }}
+ */
+export function investmentGainLoss(v) {
+  const gain = (v.currentValue || 0) - (v.invested || 0);
+  const gainPct = v.invested > 0 ? (gain / v.invested) * 100 : 0;
+  return { gain, gainPct };
+}
+
+/**
+ * Portfolio totals: invested, current value, overall gain, and gain % (Req 19.2, 19.3).
+ * @returns {{ invested:number, current:number, gain:number, gainPct:number }}
+ */
+export function investTotals() {
+  let invested = 0;
+  let current = 0;
+  for (const v of state.investments) {
+    invested += v.invested || 0;
+    current += v.currentValue || 0;
+  }
+  const gain = current - invested;
+  const gainPct = invested > 0 ? (gain / invested) * 100 : 0;
+  return { invested, current, gain, gainPct };
+}
+
+/**
+ * Investments sorted by current value (largest first).
+ * @returns {import('../types.js').Investment[]}
+ */
+export function investmentsSorted() {
+  return state.investments
+    .slice()
+    .sort((a, b) => (b.currentValue || 0) - (a.currentValue || 0));
 }
