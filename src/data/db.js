@@ -29,6 +29,7 @@ export const DEFAULT_BUDGET = /** @type {import('../types.js').BudgetSettings} *
   method: 'percentage',
   groups: { needs: 50, wants: 30, savings: 20 },
   fixedByCategory: {},
+  groupCategoryAmounts: {},
 });
 
 /** Default categories seeded on first run (Req 5.1). Stable slug ids. */
@@ -288,6 +289,7 @@ export async function getBudget() {
         ...rec,
         groups: { ...DEFAULT_BUDGET.groups, ...(rec.groups || {}) },
         fixedByCategory: { ...(rec.fixedByCategory || {}) },
+        groupCategoryAmounts: { ...(rec.groupCategoryAmounts || {}) },
       };
     }
     return { ...DEFAULT_BUDGET };

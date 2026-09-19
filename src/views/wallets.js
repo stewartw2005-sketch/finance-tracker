@@ -26,9 +26,11 @@ let expandedId = null;
 export function renderWallets(container) {
   const rows = store.walletsWithSaldo();
   const hidden = store.isSaldoHidden();
+  const total = store.totalSaldo();
 
   container.append(
-    el('div', { style: 'margin:4px 0 14px' },
+    totalSaldoCard(total, hidden),
+    el('div', { style: 'margin:14px 0' },
       el('button', { class: 'btn primary full', onClick: () => openWalletForm() }, '+ ' + t.wallet.addButton)
     ),
     el('div', { class: 'section-title' }, t.wallet.yourWallets),
@@ -39,6 +41,34 @@ export function renderWallets(container) {
         ])
       : el('ul', { class: 'wallet-list' }, rows.map(({ wallet, saldo }) => walletRow(wallet, saldo, hidden)))
   );
+}
+
+/**
+ * Total saldo across all wallets with a privacy lock toggle (Req 14.3).
+ * @param {number} total @param {boolean} hidden
+ * @returns {HTMLElement}
+ */
+function totalSaldoCard(total, hidden) {
+  return el('div', { class: 'saldo-card' }, [
+    el('div', { class: 'saldo-head' }, [
+      el('span', { class: 'saldo-label' }, t.wallet.totalSaldo),
+      el(
+        'button',
+        {
+          class: 'saldo-lock',
+          'aria-label': hidden ? t.wallet.showBalance : t.wallet.hideBalance,
+          'aria-pressed': hidden ? 'true' : 'false',
+          onClick: () => store.toggleSaldoHidden(),
+        },
+        icon(hidden ? 'lock' : 'unlock', { size: 18 })
+      ),
+    ]),
+    el(
+      'div',
+      { class: 'saldo-value' + (total < 0 ? ' negative' : '') },
+      hidden ? t.wallet.hidden : money(total)
+    ),
+  ]);
 }
 
 /**

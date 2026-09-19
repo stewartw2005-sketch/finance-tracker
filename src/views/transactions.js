@@ -91,13 +91,15 @@ export function renderTransactions(container) {
  * @returns {HTMLElement}
  */
 function transactionRow(tx) {
+  const categoryLabel = store.categoryName(tx.categoryId);
   const walletLabel = tx.walletId ? store.walletName(tx.walletId) : '';
-  const meta = [store.categoryName(tx.categoryId), walletLabel].filter(Boolean).join(' · ');
+  const meta = [categoryLabel, walletLabel].filter(Boolean).join(' · ');
+  // The note (Catatan) is the title when present; otherwise the category is.
+  const title = tx.note ? tx.note : categoryLabel;
   return el('li', { class: 'tx-item' }, [
     el('div', { class: 'tx-main' }, [
-      el('div', { class: 'tx-cat' }, store.categoryName(tx.categoryId)),
+      el('div', { class: 'tx-cat' }, title),
       el('div', { class: 'tx-meta' }, meta),
-      tx.note ? el('div', { class: 'tx-note' }, tx.note) : null,
     ]),
     el('div', { class: 'tx-amount ' + tx.type }, signedMoney(tx.amount, tx.type)),
     el('div', { class: 'tx-actions' }, [

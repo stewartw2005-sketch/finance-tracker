@@ -29,6 +29,7 @@ const PATHS = {
   close: '<path d="M6 6l12 12"/><path d="M18 6 6 18"/>',
   chevronDown: '<path d="M6 9l6 6 6-6"/>',
   chevronRight: '<path d="M9 6l6 6-6 6"/>',
+  chevronLeft: '<path d="M15 6l-6 6 6 6"/>',
 
   // Lainnya hub section icons
   target: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.6" fill="currentColor" stroke="none"/>',

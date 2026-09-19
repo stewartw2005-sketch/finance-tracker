@@ -57,7 +57,8 @@
  * @property {number} monthlyIncome  - expected monthly income (Rupiah)
  * @property {BudgetMethod} method   - 'percentage' | 'fixed'
  * @property {{needs:number, wants:number, savings:number}} groups - percentages summing to 100
- * @property {Record<string, number>} fixedByCategory - categoryId -> Rupiah budget
+ * @property {Record<string, number>} fixedByCategory - categoryId -> Rupiah budget (fixed method)
+ * @property {Record<string, number>} [groupCategoryAmounts] - categoryId -> Rupiah override (percentage method)
  */
 
 /**

@@ -37,6 +37,7 @@ import { t } from '../lib/i18n.js';
  * @property {boolean} saldoHidden    - hide balances for privacy (display only)
  * @property {boolean} loaded
  * @property {string} error           - non-blocking error message ('' if none)
+ * @property {string} notice          - transient confirmation toast ('' if none)
  */
 
 /** Read the persisted balance-privacy preference. */
@@ -60,6 +61,7 @@ const state = {
     method: 'percentage',
     groups: { needs: 50, wants: 30, savings: 20 },
     fixedByCategory: {},
+    groupCategoryAmounts: {},
   },
   selectedMonth: currentMonth(),
   filterCategory: '',
@@ -68,6 +70,7 @@ const state = {
   saldoHidden: initialSaldoHidden(),
   loaded: false,
   error: '',
+  notice: '',
 };
 
 /** @type {Set<() => void>} */
@@ -424,6 +427,21 @@ export function setFixedBudget(categoryId, amount) {
   return persistBudget();
 }
 
+/**
+ * Set an explicit per-category budget amount in percentage mode. Passing 0
+ * clears the override, reverting that category to the even-split default
+ * (Req 16.7).
+ * @param {string} categoryId @param {number} amount
+ */
+export function setCategoryAmount(categoryId, amount) {
+  const map = { ...(state.budget.groupCategoryAmounts || {}) };
+  const val = Math.max(0, Math.round(amount) || 0);
+  if (val > 0) map[categoryId] = val;
+  else delete map[categoryId];
+  state.budget = { ...state.budget, groupCategoryAmounts: map };
+  return persistBudget();
+}
+
 /** @param {string} month 'YYYY-MM' */
 export function setSelectedMonth(month) {
   state.selectedMonth = month;
@@ -511,6 +529,25 @@ export function setError(msg) {
 export function clearError() {
   state.error = '';
   notify();
+}
+
+/** @type {number|undefined} */
+let noticeTimer;
+
+/**
+ * Show a brief center-screen confirmation toast (e.g. "Tersimpan").
+ * @param {string} msg
+ */
+export function showNotice(msg) {
+  state.notice = msg;
+  notify();
+  if (typeof clearTimeout === 'function') clearTimeout(noticeTimer);
+  if (typeof setTimeout === 'function') {
+    noticeTimer = setTimeout(() => {
+      state.notice = '';
+      notify();
+    }, 1600);
+  }
 }
 
 // ---- Selectors ------------------------------------------------------------
@@ -811,6 +848,10 @@ export function categoryBudget(categoryId) {
   }
   const cat = state.categories.find((c) => c.id === categoryId);
   if (!cat || !cat.budgetGroup) return 0;
+  // If the user set an explicit amount for this category, use it (Req 16.7,
+  // editable). Otherwise fall back to an even split of the group budget.
+  const override = b.groupCategoryAmounts && b.groupCategoryAmounts[categoryId];
+  if (override != null && override > 0) return override;
   const group = cat.budgetGroup;
   const peers = state.categories.filter((c) => c.budgetGroup === group);
   if (peers.length === 0) return 0;

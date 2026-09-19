@@ -48,16 +48,16 @@ function renderApp() {
 
   const isSecondary = SECONDARY.has(activeView);
 
-  const header = el('header', { class: 'app-header' }, [
+  const header = el('header', { class: 'app-header' + (isSecondary ? ' with-back' : '') }, [
     isSecondary
       ? el(
           'button',
           {
-            class: 'link-btn',
+            class: 'back-btn',
             onClick: () => setView('lainnya'),
             'aria-label': t.app.back,
           },
-          '‹ ' + t.app.back
+          [icon('chevronLeft', { size: 20 }), el('span', {}, t.app.back)]
         )
       : null,
     el('h1', {}, headerTitle(activeView)),
@@ -86,6 +86,12 @@ function renderApp() {
           '✕'
         ),
       ])
+    );
+  }
+
+  if (state.notice) {
+    children.push(
+      el('div', { class: 'notice', role: 'status' }, state.notice)
     );
   }
 

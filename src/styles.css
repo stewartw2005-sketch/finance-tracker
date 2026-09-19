@@ -1323,3 +1323,87 @@ textarea.invalid {
   display: grid;
   place-items: center;
 }
+
+
+/* ---- Header back button (secondary views) ------------------ */
+
+.app-header.with-back {
+  gap: 8px;
+}
+
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 38px;
+  padding: 0 12px 0 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  border-radius: 999px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.back-btn:active {
+  background: var(--surface-3);
+}
+
+.back-btn svg {
+  display: block;
+}
+
+
+/* ---- Center confirmation notice ("Tersimpan") -------------- */
+
+.notice {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 70;
+  background: rgba(20, 20, 24, 0.96);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 14px 22px;
+  border-radius: 12px;
+  font-weight: 600;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  animation: notice-pop 0.15s ease;
+  pointer-events: none;
+}
+
+@keyframes notice-pop {
+  from { opacity: 0; transform: translate(-50%, -46%); }
+  to { opacity: 1; transform: translate(-50%, -50%); }
+}
+
+/* ---- Budget assign rows with editable amount --------------- */
+
+.assign-item.column {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.assign-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.assign-row .assign-name {
+  flex: 1;
+}
+
+.assign-amount {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.assign-amount-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  flex: none;
+}
