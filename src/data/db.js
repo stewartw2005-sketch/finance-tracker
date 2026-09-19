@@ -10,13 +10,26 @@
  */
 
 const DB_NAME = 'finance-tracker';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORE_TX = 'transactions';
 const STORE_CAT = 'categories';
 const STORE_WALLET = 'wallets';
+const STORE_BUDGET = 'budget';
 
 /** Stable id for the seeded default cash wallet (Req 21.2). */
 export const DEFAULT_WALLET_ID = 'tunai';
+
+/** Stable key for the singleton budget settings record (Req 16). */
+export const BUDGET_ID = 'singleton';
+
+/** Default budget settings (percentage 50/30/20, no income set yet). */
+export const DEFAULT_BUDGET = /** @type {import('../types.js').BudgetSettings} */ ({
+  id: BUDGET_ID,
+  monthlyIncome: 0,
+  method: 'percentage',
+  groups: { needs: 50, wants: 30, savings: 20 },
+  fixedByCategory: {},
+});
 
 /** Default categories seeded on first run (Req 5.1). Stable slug ids. */
 export const DEFAULT_CATEGORIES = /** @type {Category[]} */ ([
@@ -66,6 +79,10 @@ function openDB() {
       // v2 stores (Req 21.3)
       if (!db.objectStoreNames.contains(STORE_WALLET)) {
         db.createObjectStore(STORE_WALLET, { keyPath: 'id' });
+      }
+      // v3 stores (Req 16)
+      if (!db.objectStoreNames.contains(STORE_BUDGET)) {
+        db.createObjectStore(STORE_BUDGET, { keyPath: 'id' });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -254,6 +271,40 @@ export async function seedDefaultWalletAndMigrate(tunaiName) {
   }
 }
 
+// ---- Budget ---------------------------------------------------------------
+
+/**
+ * Load the singleton budget settings, or the defaults if none saved yet.
+ * Never throws (Req 9.3).
+ * @returns {Promise<import('../types.js').BudgetSettings>}
+ */
+export async function getBudget() {
+  try {
+    const rec = await run(STORE_BUDGET, 'readonly', (s) => s.get(BUDGET_ID));
+    if (rec && isValidBudget(rec)) {
+      // Merge onto defaults so missing fields are backfilled.
+      return {
+        ...DEFAULT_BUDGET,
+        ...rec,
+        groups: { ...DEFAULT_BUDGET.groups, ...(rec.groups || {}) },
+        fixedByCategory: { ...(rec.fixedByCategory || {}) },
+      };
+    }
+    return { ...DEFAULT_BUDGET };
+  } catch {
+    return { ...DEFAULT_BUDGET };
+  }
+}
+
+/**
+ * Persist the budget settings.
+ * @param {import('../types.js').BudgetSettings} budget
+ * @returns {Promise<void>}
+ */
+export async function saveBudget(budget) {
+  await run(STORE_BUDGET, 'readwrite', (s) => s.put({ ...budget, id: BUDGET_ID }));
+}
+
 // ---- Validation guards for corrupt records --------------------------------
 
 /** @param {any} t @returns {t is Transaction} */
@@ -283,4 +334,9 @@ function isValidWallet(w) {
     typeof w.balance === 'number' &&
     Number.isFinite(w.balance)
   );
+}
+
+/** @param {any} b @returns {boolean} */
+function isValidBudget(b) {
+  return b && typeof b === 'object' && typeof b.id === 'string';
 }

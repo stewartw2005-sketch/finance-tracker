@@ -116,6 +116,36 @@ export const t = {
     walletSaveFailed: 'Gagal menyimpan dompet.',
     walletUpdateFailed: 'Gagal memperbarui dompet.',
     walletDeleteFailed: 'Gagal menghapus dompet.',
+    budgetSaveFailed: 'Gagal menyimpan budget.',
+  },
+
+  budget: {
+    title: 'Atur Budget',
+    monthlyIncome: 'Pemasukan bulanan',
+    monthlyIncomeHint: 'Perkiraan pemasukan Anda tiap bulan',
+    method: 'Metode',
+    methodPercentage: 'Persentase',
+    methodFixed: 'Nominal Tetap',
+    // groups
+    needs: 'Kebutuhan',
+    wants: 'Keinginan',
+    savings: 'Tabungan',
+    groupsTitle: 'Alokasi 50/30/20',
+    mustTotal100: 'Total persentase harus 100%.',
+    total: (n) => `Total: ${n}%`,
+    // category assignment
+    assignTitle: 'Kelompok Kategori',
+    assignHint: 'Tetapkan tiap kategori ke salah satu kelompok.',
+    noGroup: 'Belum diatur',
+    // progress
+    progressTitle: 'Progres Budget Bulan Ini',
+    noBudgetTitle: 'Budget belum diatur.',
+    noBudgetHint: 'Atur pemasukan bulanan dan alokasi untuk mulai.',
+    spentOf: (spent, limit) => `${spent} dari ${limit}`,
+    overBudget: 'Melebihi budget',
+    perCategoryFixed: 'Budget per Kategori',
+    perCategoryFixedHint: 'Tetapkan nominal budget untuk tiap kategori.',
+    saved: 'Tersimpan',
   },
 
   dashboard: {

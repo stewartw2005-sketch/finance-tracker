@@ -28,6 +28,15 @@ const PATHS = {
   unlock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.4-2"/>',
   close: '<path d="M6 6l12 12"/><path d="M18 6 6 18"/>',
   chevronDown: '<path d="M6 9l6 6 6-6"/>',
+  chevronRight: '<path d="M9 6l6 6-6 6"/>',
+
+  // Lainnya hub section icons
+  target: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.6" fill="currentColor" stroke="none"/>',
+  diamond: '<path d="M6 3h12l3 6-9 12L3 9l3-6Z"/><path d="M3 9h18"/><path d="M9 3l3 6 3-6"/>',
+  debt: '<path d="M4 17l5-5 4 4 7-8"/><path d="M15 8h5v5"/>',
+  chart: '<path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M4 20h16"/>',
+  report: '<path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4"/><path d="M9.5 12h5"/><path d="M9.5 15.5h5"/>',
+  tag: '<path d="M4 4h7l9 9-7 7-9-9V4Z"/><circle cx="8" cy="8" r="1.4" fill="currentColor" stroke="none"/>',
 
   // Wallet types (used as small leading glyphs)
   bank: '<path d="M4 10h16"/><path d="M12 3 4 7h16l-8-4Z"/><path d="M6 10v7"/><path d="M10 10v7"/><path d="M14 10v7"/><path d="M18 10v7"/><path d="M4 20h16"/>',
