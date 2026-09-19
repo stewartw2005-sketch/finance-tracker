@@ -106,7 +106,7 @@ function renderApp() {
 function renderActiveView(main) {
   switch (activeView) {
     case 'beranda':
-      renderBeranda(main);
+      renderBeranda(main, setView);
       break;
     case 'dompet':
       renderWallets(main);
