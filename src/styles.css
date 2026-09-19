@@ -1600,3 +1600,22 @@ textarea.invalid {
 .invest-gain.negative {
   color: var(--expense);
 }
+
+
+/* ---- Laporan (report deltas) ------------------------------- */
+
+.report-delta {
+  margin-top: 4px;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.report-delta.good {
+  color: var(--income);
+}
+.report-delta.bad {
+  color: var(--expense);
+}
+.report-delta.flat {
+  color: var(--text-muted);
+}
