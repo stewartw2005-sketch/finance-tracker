@@ -59,6 +59,29 @@ export function parseAmount(input) {
 }
 
 /**
+ * Compact Rupiah for tight spaces (e.g. calendar cells), e.g.
+ * 675000 -> "675rb", 1250000 -> "1,2jt", 500 -> "500". Keeps a leading sign.
+ * @param {number} n
+ * @returns {string}
+ */
+export function moneyShort(n) {
+  if (!Number.isFinite(n) || n === 0) return '0';
+  const sign = n < 0 ? '-' : '';
+  const abs = Math.abs(n);
+  let out;
+  if (abs >= 1_000_000) {
+    const v = abs / 1_000_000;
+    out = (Number.isInteger(v) ? String(v) : v.toFixed(1)).replace('.', ',') + 'jt';
+  } else if (abs >= 1_000) {
+    const v = abs / 1_000;
+    out = (Number.isInteger(v) ? String(v) : v.toFixed(1)).replace('.', ',') + 'rb';
+  } else {
+    out = String(Math.round(abs));
+  }
+  return sign + out;
+}
+
+/**
  * Group a raw amount string with `.` thousands separators for display in an
  * input field, e.g. "500000" -> "500.000". Non-digits are stripped; an empty
  * or all-zero-stripped string returns ''. A leading '-' is preserved.

@@ -8,7 +8,7 @@
  */
 import { el } from '../lib/dom.js';
 import * as store from '../state/store.js';
-import { money } from '../lib/format.js';
+import { money, moneyShort } from '../lib/format.js';
 import { formatMonthLabel, formatDateLabel, isToday, isYesterday } from '../lib/dates.js';
 import { t } from '../lib/i18n.js';
 import { icon } from '../lib/icons.js';
@@ -148,7 +148,7 @@ function comparisonCard(month, hidden) {
       el('span', { class: 'cmp-delta ' + cls }, text),
     ]);
   };
-  return el('div', { class: 'card' }, [
+  return el('div', { class: 'card', style: 'margin-top:20px' }, [
     el('div', { class: 'section-title', style: 'margin-top:0' }, t.beranda.comparisonTitle),
     row(t.laporan.income, cmp.incomePct, 'income'),
     row(t.laporan.expenses, cmp.expensePct, 'expense'),
@@ -179,18 +179,31 @@ function calendarCard(month, hidden) {
   for (const d of dow) cells.push(el('div', { class: 'cal-dow' }, d));
   // Leading blanks.
   for (let i = 0; i < firstDow; i++) cells.push(el('div', { class: 'cal-cell empty' }));
-  // Day cells.
+  // Day cells: day number (small, top) + compact spend amount (below).
   for (let day = 1; day <= daysInMonth; day++) {
     const net = netByDay.get(day) || 0;
     const spend = net > 0 ? net : 0;
     const intensity = maxSpend > 0 && spend > 0 ? Math.min(1, spend / maxSpend) : 0;
-    // Blend surface -> expense color by intensity.
+    // Subtle expense tint scaled by intensity (lighter than before, per ref).
     const bg = intensity > 0
-      ? `color-mix(in srgb, var(--expense) ${Math.round(15 + intensity * 65)}%, var(--surface-3))`
+      ? `color-mix(in srgb, var(--expense) ${Math.round(8 + intensity * 34)}%, var(--surface-2))`
       : 'var(--surface-2)';
-    const title = spend > 0 && !hidden ? `${day}: ${money(spend)}` : String(day);
+    const today = isToday(`${month}-${String(day).padStart(2, '0')}`);
     cells.push(
-      el('div', { class: 'cal-cell' + (isToday(`${month}-${String(day).padStart(2,'0')}`) ? ' today' : ''), style: `background:${bg}`, title }, String(day))
+      el(
+        'div',
+        {
+          class: 'cal-cell' + (today ? ' today' : ''),
+          style: `background:${bg}`,
+          title: spend > 0 && !hidden ? `${day}: ${money(spend)}` : String(day),
+        },
+        [
+          el('span', { class: 'cal-day' }, String(day)),
+          spend > 0
+            ? el('span', { class: 'cal-amt' }, hidden ? '•••' : '-' + moneyShort(spend))
+            : null,
+        ]
+      )
     );
   }
 
