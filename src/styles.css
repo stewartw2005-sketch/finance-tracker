@@ -1458,3 +1458,76 @@ textarea.invalid {
   display: flex;
   gap: 2px;
 }
+
+
+/* ---- Utang (debt list) ------------------------------------- */
+
+.debt-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.debt-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+}
+
+.debt-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.debt-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.debt-name {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.overdue-badge {
+  color: var(--expense);
+  border-color: color-mix(in srgb, var(--expense) 45%, transparent);
+}
+
+.lunas-badge {
+  color: var(--income);
+  border-color: color-mix(in srgb, var(--income) 45%, transparent);
+}
+
+.debt-actions {
+  flex: none;
+  display: flex;
+  gap: 2px;
+}
+
+.debt-remaining {
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  margin: 8px 0 8px;
+}
+
+.debt-remaining.lunas {
+  color: var(--income);
+}
+
+.debt-due {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+.debt-due.overdue {
+  color: var(--expense);
+}

@@ -10,7 +10,7 @@
  * @typedef {import('../types.js').CategorySpend} CategorySpend
  */
 import * as db from '../data/db.js';
-import { currentMonth, monthOf, isToday, isYesterday, formatDateLabel } from '../lib/dates.js';
+import { currentMonth, monthOf, isToday, isYesterday, formatDateLabel, todayISO } from '../lib/dates.js';
 import { makeId } from '../lib/validation.js';
 import { t } from '../lib/i18n.js';
 
@@ -30,6 +30,7 @@ import { t } from '../lib/i18n.js';
  * @property {Category[]} categories
  * @property {import('../types.js').Wallet[]} wallets
  * @property {import('../types.js').Asset[]} assets
+ * @property {import('../types.js').Debt[]} debts
  * @property {import('../types.js').BudgetSettings} budget
  * @property {string} selectedMonth   - 'YYYY-MM'
  * @property {string} filterCategory  - category id or '' for all
@@ -57,6 +58,8 @@ const state = {
   wallets: [],
   /** @type {import('../types.js').Asset[]} */
   assets: [],
+  /** @type {import('../types.js').Debt[]} */
+  debts: [],
   /** @type {import('../types.js').BudgetSettings} */
   budget: {
     id: 'singleton',
@@ -111,11 +114,13 @@ export async function init() {
     const transactions = await db.getAllTransactions();
     const budget = await db.getBudget();
     const assets = await db.getAllAssets();
+    const debts = await db.getAllDebts();
     state.categories = categories;
     state.wallets = wallets;
     state.transactions = transactions;
     state.budget = budget;
     state.assets = assets;
+    state.debts = debts;
     state.lastWalletId =
       (wallets.find((w) => w.id === db.DEFAULT_WALLET_ID) || wallets[0] || {}).id || '';
   } catch {
@@ -124,6 +129,7 @@ export async function init() {
     state.wallets = [];
     state.transactions = [];
     state.assets = [];
+    state.debts = [];
     state.error = t.errors.loadFailed;
   } finally {
     state.loaded = true;
@@ -508,6 +514,71 @@ export async function removeAsset(id) {
     await db.deleteAsset(id);
   } catch {
     setError(t.errors.assetDeleteFailed);
+  }
+}
+
+// ---- Debt mutations (Req 18) ----------------------------------------------
+
+/**
+ * Add a debt.
+ * @param {{name:string, total:number, paid:number, dueDate?:string}} data
+ * @returns {Promise<import('../types.js').Debt>}
+ */
+export async function addDebt(data) {
+  /** @type {import('../types.js').Debt} */
+  const debt = {
+    id: makeId(),
+    name: data.name.trim(),
+    total: Math.max(0, Math.round(data.total) || 0),
+    paid: Math.max(0, Math.round(data.paid) || 0),
+    dueDate: data.dueDate || undefined,
+    createdAt: Date.now(),
+  };
+  state.debts.push(debt);
+  notify();
+  try {
+    await db.addDebt(debt);
+  } catch {
+    setError(t.errors.debtSaveFailed);
+  }
+  return debt;
+}
+
+/**
+ * Edit a debt.
+ * @param {string} id
+ * @param {{name:string, total:number, paid:number, dueDate?:string}} data
+ * @returns {Promise<void>}
+ */
+export async function editDebt(id, data) {
+  const idx = state.debts.findIndex((d) => d.id === id);
+  if (idx === -1) return;
+  /** @type {import('../types.js').Debt} */
+  const updated = {
+    ...state.debts[idx],
+    name: data.name.trim(),
+    total: Math.max(0, Math.round(data.total) || 0),
+    paid: Math.max(0, Math.round(data.paid) || 0),
+    dueDate: data.dueDate || undefined,
+  };
+  state.debts[idx] = updated;
+  notify();
+  try {
+    await db.updateDebt(updated);
+  } catch {
+    setError(t.errors.debtUpdateFailed);
+  }
+}
+
+/** @param {string} id @returns {Promise<void>} */
+export async function removeDebt(id) {
+  if (!state.debts.some((d) => d.id === id)) return;
+  state.debts = state.debts.filter((d) => d.id !== id);
+  notify();
+  try {
+    await db.deleteDebt(id);
+  } catch {
+    setError(t.errors.debtDeleteFailed);
   }
 }
 
@@ -1136,4 +1207,54 @@ export function runwayMonths() {
   const avg = avgMonthlyExpense(3);
   if (avg <= 0) return null;
   return liquidNetWorth() / avg;
+}
+
+
+// ---- Debt selectors (Req 18) ----------------------------------------------
+
+/**
+ * Remaining balance for a debt = total − paid, never below zero (Req 18.2).
+ * @param {import('../types.js').Debt} d
+ * @returns {number}
+ */
+export function debtRemaining(d) {
+  return Math.max(0, (d.total || 0) - (d.paid || 0));
+}
+
+/**
+ * Overall total remaining debt across all debts (Req 18.3).
+ * @returns {number}
+ */
+export function totalDebt() {
+  return state.debts.reduce((s, d) => s + debtRemaining(d), 0);
+}
+
+/**
+ * True if a debt has an unpaid balance and a due date in the past (Req 18.4).
+ * @param {import('../types.js').Debt} d
+ * @returns {boolean}
+ */
+export function isDebtOverdue(d) {
+  if (!d.dueDate) return false;
+  if (debtRemaining(d) <= 0) return false;
+  return d.dueDate < todayISO();
+}
+
+/**
+ * Debts sorted: unpaid first, overdue first within that, then by due date,
+ * then most recently added.
+ * @returns {import('../types.js').Debt[]}
+ */
+export function debtsSorted() {
+  return state.debts.slice().sort((a, b) => {
+    const ar = debtRemaining(a) > 0;
+    const br = debtRemaining(b) > 0;
+    if (ar !== br) return ar ? -1 : 1;
+    const ao = isDebtOverdue(a);
+    const bo = isDebtOverdue(b);
+    if (ao !== bo) return ao ? -1 : 1;
+    if (a.dueDate && b.dueDate && a.dueDate !== b.dueDate) return a.dueDate < b.dueDate ? -1 : 1;
+    if (!!a.dueDate !== !!b.dueDate) return a.dueDate ? -1 : 1;
+    return (b.createdAt || 0) - (a.createdAt || 0);
+  });
 }

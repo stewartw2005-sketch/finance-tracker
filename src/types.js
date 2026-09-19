@@ -75,6 +75,16 @@
  */
 
 /**
+ * @typedef {Object} Debt
+ * @property {string} id           - uuid
+ * @property {string} name         - display name (e.g. "KPR", "Pinjaman teman")
+ * @property {number} total        - total amount owed (Rupiah)
+ * @property {number} paid         - amount paid so far (Rupiah)
+ * @property {string} [dueDate]    - optional ISO 'YYYY-MM-DD' due date (jatuh tempo)
+ * @property {number} createdAt    - epoch ms
+ */
+
+/**
  * @typedef {Object} MonthlySummary
  * @property {string} month        - 'YYYY-MM'
  * @property {number} totalIncome

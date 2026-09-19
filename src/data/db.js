@@ -10,12 +10,13 @@
  */
 
 const DB_NAME = 'finance-tracker';
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 const STORE_TX = 'transactions';
 const STORE_CAT = 'categories';
 const STORE_WALLET = 'wallets';
 const STORE_BUDGET = 'budget';
 const STORE_ASSET = 'assets';
+const STORE_DEBT = 'debts';
 
 /** Stable id for the seeded default cash wallet (Req 21.2). */
 export const DEFAULT_WALLET_ID = 'tunai';
@@ -89,6 +90,10 @@ function openDB() {
       // v4 stores (Req 17)
       if (!db.objectStoreNames.contains(STORE_ASSET)) {
         db.createObjectStore(STORE_ASSET, { keyPath: 'id' });
+      }
+      // v5 stores (Req 18)
+      if (!db.objectStoreNames.contains(STORE_DEBT)) {
+        db.createObjectStore(STORE_DEBT, { keyPath: 'id' });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -339,6 +344,33 @@ export async function deleteAsset(id) {
   await run(STORE_ASSET, 'readwrite', (s) => s.delete(id));
 }
 
+// ---- Debts (Req 18) -------------------------------------------------------
+
+/** @returns {Promise<import('../types.js').Debt[]>} */
+export async function getAllDebts() {
+  try {
+    const all = await run(STORE_DEBT, 'readonly', (s) => s.getAll());
+    return Array.isArray(all) ? all.filter(isValidDebt) : [];
+  } catch {
+    return []; // Safe fallback (Req 9.3)
+  }
+}
+
+/** @param {import('../types.js').Debt} d @returns {Promise<void>} */
+export async function addDebt(d) {
+  await run(STORE_DEBT, 'readwrite', (s) => s.put(d));
+}
+
+/** @param {import('../types.js').Debt} d @returns {Promise<void>} */
+export async function updateDebt(d) {
+  await run(STORE_DEBT, 'readwrite', (s) => s.put(d));
+}
+
+/** @param {string} id @returns {Promise<void>} */
+export async function deleteDebt(id) {
+  await run(STORE_DEBT, 'readwrite', (s) => s.delete(id));
+}
+
 // ---- Validation guards for corrupt records --------------------------------
 
 /** @param {any} t @returns {t is Transaction} */
@@ -384,5 +416,18 @@ function isValidAsset(a) {
     typeof a.value === 'number' &&
     Number.isFinite(a.value) &&
     (a.assetClass === 'liquid' || a.assetClass === 'fixed')
+  );
+}
+
+/** @param {any} d @returns {d is import('../types.js').Debt} */
+function isValidDebt(d) {
+  return (
+    d &&
+    typeof d.id === 'string' &&
+    typeof d.name === 'string' &&
+    typeof d.total === 'number' &&
+    Number.isFinite(d.total) &&
+    typeof d.paid === 'number' &&
+    Number.isFinite(d.paid)
   );
 }
