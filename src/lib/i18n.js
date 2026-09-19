@@ -145,6 +145,7 @@ export const t = {
     overBudget: 'Melebihi budget',
     perCategoryFixed: 'Budget per Kategori',
     perCategoryFixedHint: 'Tetapkan nominal budget untuk tiap kategori.',
+    amount: 'Nominal',
     saved: 'Tersimpan',
   },
 

@@ -21,10 +21,12 @@ export function openTransactionForm(existing) {
   const categories = state.categories;
   const wallets = state.wallets;
 
-  // Default wallet: the transaction's own (edit), else last-used, else first.
+  // Default wallet: the transaction's own (edit), else the primary (UTAMA)
+  // wallet, else the first wallet.
+  const primary = store.primaryWallet();
   const defaultWalletId =
     (existing && existing.walletId) ||
-    state.lastWalletId ||
+    (primary ? primary.id : '') ||
     (wallets[0] ? wallets[0].id : '');
 
   // Working copy of form values.

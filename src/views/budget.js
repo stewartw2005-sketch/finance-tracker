@@ -83,7 +83,7 @@ function methodToggle(budget) {
   ]);
 }
 
-/** Percentage mode: 3 sliders + category→group assignment. */
+/** Percentage mode: 3 sliders + category→group assignment + editable amounts. */
 function percentageSection(budget, spendingCats) {
   const draft = sliderDraft;
   const wrap = el('div', { class: 'card' });
@@ -104,18 +104,21 @@ function percentageSection(budget, spendingCats) {
         onClick: () => {
           if (!validNow()) return;
           store.setGroupPercents({ ...draft });
+          store.showNotice(t.budget.saved);
         },
       },
       t.app.save
     );
 
-    wrap.append(
+    // Only include the warning when invalid — never append null.
+    const children = [
       el('div', { class: 'section-title', style: 'margin-top:0' }, t.budget.groupsTitle),
       ...rows,
       totalNode,
-      validNow() ? null : el('div', { class: 'field-error' }, t.budget.mustTotal100),
-      saveBtn
-    );
+    ];
+    if (!validNow()) children.push(el('div', { class: 'field-error' }, t.budget.mustTotal100));
+    children.push(saveBtn);
+    for (const child of children) wrap.appendChild(child);
   }
 
   function currentTotal() {
@@ -132,7 +135,7 @@ function percentageSection(budget, spendingCats) {
       type: 'range',
       min: '0',
       max: '100',
-      step: '5',
+      step: '1',
       value: String(draft[g]),
       class: 'budget-slider',
       onInput: (e) => {
@@ -158,7 +161,11 @@ function percentageSection(budget, spendingCats) {
   ]);
 }
 
-/** Category → group assignment (percentage mode). */
+/**
+ * Category → group assignment (percentage mode). When a category is assigned
+ * to a group, an editable Rupiah amount is shown; blank reverts to the even
+ * split of that group's budget (Req 16.6, 16.7).
+ */
 function assignSection(spendingCats) {
   const list = el(
     'ul',
@@ -177,10 +184,38 @@ function assignSection(spendingCats) {
           el('option', { value: 'savings', selected: c.budgetGroup === 'savings' }, t.budget.savings),
         ]
       );
-      return el('li', { class: 'assign-item' }, [
-        el('span', { class: 'assign-name' }, store.categoryName(c.id)),
-        select,
-      ]);
+
+      const children = [
+        el('div', { class: 'assign-row' }, [
+          el('span', { class: 'assign-name' }, store.categoryName(c.id)),
+          select,
+        ]),
+      ];
+
+      // Editable amount for assigned categories (defaults to computed split).
+      if (c.budgetGroup) {
+        const stored =
+          store.getBudget().groupCategoryAmounts &&
+          store.getBudget().groupCategoryAmounts[c.id];
+        const computed = store.categoryBudget(c.id);
+        const amountInput = el('input', {
+          type: 'number',
+          inputmode: 'numeric',
+          step: '1',
+          min: '0',
+          value: stored ? String(stored) : '',
+          placeholder: money(computed).replace(/\u00a0/g, ' '),
+          onChange: (e) => store.setCategoryAmount(c.id, parseAmount(e.target.value) || 0),
+        });
+        children.push(
+          el('div', { class: 'assign-amount' }, [
+            el('span', { class: 'assign-amount-label' }, t.budget.amount),
+            el('div', { style: 'flex:1;max-width:170px' }, amountInput),
+          ])
+        );
+      }
+
+      return el('li', { class: 'assign-item column' }, children);
     })
   );
   return el('div', {}, [

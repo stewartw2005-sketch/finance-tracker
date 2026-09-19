@@ -21,11 +21,9 @@ import { monthSelect } from './monthSelect.js';
 export function renderBeranda(container) {
   const month = store.getState().selectedMonth;
   const summary = store.selectMonthlySummary(month);
-  const total = store.totalSaldo();
   const hidden = store.isSaldoHidden();
 
   container.append(
-    totalSaldoCard(total, hidden),
     glanceCard(summary, hidden),
     el('div', { class: 'section-title' }, t.beranda.ringkasanBulan),
     el('label', { class: 'field', style: 'margin-bottom:16px' }, [
@@ -34,34 +32,6 @@ export function renderBeranda(container) {
     ]),
     monthSummaryGrid(month, summary)
   );
-}
-
-/**
- * Total saldo across all wallets (Req 14.3, 22.11), with a privacy lock.
- * @param {number} total @param {boolean} hidden
- * @returns {HTMLElement}
- */
-function totalSaldoCard(total, hidden) {
-  return el('div', { class: 'saldo-card' }, [
-    el('div', { class: 'saldo-head' }, [
-      el('span', { class: 'saldo-label' }, t.wallet.totalSaldo),
-      el(
-        'button',
-        {
-          class: 'saldo-lock',
-          'aria-label': hidden ? t.wallet.showBalance : t.wallet.hideBalance,
-          'aria-pressed': hidden ? 'true' : 'false',
-          onClick: () => store.toggleSaldoHidden(),
-        },
-        icon(hidden ? 'lock' : 'unlock', { size: 18 })
-      ),
-    ]),
-    el(
-      'div',
-      { class: 'saldo-value' + (total < 0 ? ' negative' : '') },
-      hidden ? t.wallet.hidden : money(total)
-    ),
-  ]);
 }
 
 /**
