@@ -876,14 +876,32 @@ textarea.invalid {
 }
 
 .wallet-item {
-  position: relative; /* anchor for the actions dropdown */
-  display: flex;
-  align-items: center;
-  gap: 12px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.wallet-item.open {
+  border-color: color-mix(in srgb, var(--accent-nav) 45%, var(--border));
+}
+
+/* The whole row is a button that toggles the panel. */
+.wallet-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
   padding: 12px 14px;
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.wallet-row:active {
+  background: var(--surface-2);
 }
 
 .wallet-icon {
@@ -928,14 +946,8 @@ textarea.invalid {
   border-color: color-mix(in srgb, var(--accent-nav) 45%, transparent);
 }
 
-.wallet-right {
-  flex: none;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
 .wallet-saldo {
+  flex: none;
   font-weight: 650;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -947,35 +959,23 @@ textarea.invalid {
   color: var(--expense);
 }
 
-.wallet-menu-btn {
+.wallet-chevron {
   flex: none;
-  width: 36px;
-  height: 36px;
-  border: 0;
-  background: transparent;
-  color: var(--text-muted);
-  border-radius: 8px;
-  cursor: pointer;
+  color: var(--text-dim);
   display: grid;
   place-items: center;
+  transition: transform 0.2s ease;
 }
 
-.wallet-menu-btn:active {
-  background: var(--surface-3);
+.wallet-chevron.open {
+  transform: rotate(180deg);
 }
 
-/* Actions dropdown panel */
-.wallet-menu-panel {
-  position: absolute;
-  top: calc(100% - 4px);
-  right: 10px;
-  z-index: 30;
-  width: min(280px, calc(100% - 20px));
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+/* Inline expanding panel beneath the row */
+.wallet-panel {
+  border-top: 1px solid var(--border);
   padding: 8px;
+  background: var(--surface-2);
 }
 
 .menu-rekening {
