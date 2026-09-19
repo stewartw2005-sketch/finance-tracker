@@ -2,7 +2,7 @@
    Precaches the app shell so the app loads full-screen and offline from the
    home screen (Req 10.4). No build tooling / Workbox — plain SW API. */
 
-const CACHE = 'finance-tracker-v7';
+const CACHE = 'finance-tracker-v8';
 
 /** App shell: everything needed for a cold offline start. Relative paths so
     the SW works regardless of the base path it's served from. */
@@ -31,6 +31,7 @@ const APP_SHELL = [
   './src/views/wallets.js',
   './src/views/lainnya.js',
   './src/views/budget.js',
+  './src/views/assets.js',
   './src/views/chart.js',
   './icons/favicon.svg',
   './icons/apple-touch-icon-180.png',

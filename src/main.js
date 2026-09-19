@@ -13,6 +13,7 @@ import { renderWallets } from './views/wallets.js';
 import { renderTransactions } from './views/transactions.js';
 import { renderLainnya } from './views/lainnya.js';
 import { renderBudget } from './views/budget.js';
+import { renderAssets } from './views/assets.js';
 import { openTransactionForm } from './views/transactionForm.js';
 
 /**
@@ -115,6 +116,9 @@ function renderActiveView(main) {
       break;
     case 'budget':
       renderBudget(main);
+      break;
+    case 'aset':
+      renderAssets(main);
       break;
     default:
       // Secondary sections not yet implemented in this phase.

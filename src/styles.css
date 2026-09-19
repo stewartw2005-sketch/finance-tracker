@@ -1407,3 +1407,53 @@ textarea.invalid {
   color: var(--text-muted);
   flex: none;
 }
+
+
+/* ---- Aset (net worth) breakdown ---------------------------- */
+
+.breakdown-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+}
+
+.breakdown-label {
+  color: var(--text-muted);
+}
+
+.breakdown-val {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.breakdown-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 8px 0;
+}
+
+.runway-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.runway-label {
+  font-weight: 650;
+}
+
+.runway-value {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--accent-nav);
+  white-space: nowrap;
+}
+
+.asset-actions {
+  flex: none;
+  display: flex;
+  gap: 2px;
+}
