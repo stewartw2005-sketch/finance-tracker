@@ -887,13 +887,41 @@ textarea.invalid {
   border-color: color-mix(in srgb, var(--accent-nav) 45%, var(--border));
 }
 
-/* The whole row is a button that toggles the panel. */
+.wallet-item.dragging {
+  opacity: 0.85;
+  border-color: var(--accent-nav);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5);
+}
+
+/* Row header: drag handle + the expand button. */
+.wallet-row-wrap {
+  display: flex;
+  align-items: stretch;
+}
+
+.wallet-drag {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  color: var(--text-dim);
+  cursor: grab;
+  touch-action: none; /* let pointer events drive the drag on touch */
+}
+
+.wallet-drag:active {
+  cursor: grabbing;
+  color: var(--text-muted);
+}
+
+/* The row button toggles the panel. */
 .wallet-row {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 14px;
+  padding: 12px 14px 12px 4px;
   background: transparent;
   border: 0;
   color: var(--text);

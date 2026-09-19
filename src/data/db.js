@@ -272,6 +272,22 @@ export async function seedDefaultWalletAndMigrate(tunaiName) {
       }
     }
 
+    // Assign an initial manual order to any wallet missing one. Preserve the
+    // current display order (primary first, then creation order) so nothing
+    // visibly moves on upgrade.
+    if (wallets.some((w) => typeof w.order !== 'number')) {
+      const ordered = wallets.slice().sort((a, b) => {
+        if (!!a.isPrimary !== !!b.isPrimary) return a.isPrimary ? -1 : 1;
+        return (a.createdAt || 0) - (b.createdAt || 0);
+      });
+      for (let i = 0; i < ordered.length; i++) {
+        if (typeof ordered[i].order !== 'number') {
+          ordered[i].order = i;
+          await updateWallet(ordered[i]);
+        }
+      }
+    }
+
     return wallets;
   } catch {
     // Fall back to an in-memory default so the app still works (Req 9.3).

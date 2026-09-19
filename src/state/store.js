@@ -258,6 +258,11 @@ export async function removeCategory(id) {
  */
 export async function addWallet(data) {
   const isFirst = state.wallets.length === 0;
+  // New wallets go to the end of the manual order.
+  const maxOrder = state.wallets.reduce(
+    (m, w) => (typeof w.order === 'number' && w.order > m ? w.order : m),
+    -1
+  );
   /** @type {import('../types.js').Wallet} */
   const wallet = {
     id: makeId(),
@@ -266,6 +271,7 @@ export async function addWallet(data) {
     balance: data.balance,
     accountNumber: data.accountNumber ? data.accountNumber.trim() : undefined,
     isPrimary: isFirst,
+    order: maxOrder + 1,
     createdAt: Date.now(),
   };
   state.wallets.push(wallet);
@@ -321,6 +327,30 @@ export async function setPrimaryWallet(id) {
       changed.push(w);
     }
   }
+  notify();
+  try {
+    for (const w of changed) await db.updateWallet(w);
+  } catch {
+    setError(t.errors.walletUpdateFailed);
+  }
+}
+
+/**
+ * Reorder wallets to match the given id sequence (drag-to-reorder in Dompet).
+ * Assigns each wallet an `order` index matching its position; persists all.
+ * @param {string[]} orderedIds - wallet ids in the desired display order
+ * @returns {Promise<void>}
+ */
+export async function reorderWallets(orderedIds) {
+  const changed = [];
+  orderedIds.forEach((id, i) => {
+    const w = state.wallets.find((x) => x.id === id);
+    if (w && w.order !== i) {
+      w.order = i;
+      changed.push(w);
+    }
+  });
+  if (changed.length === 0) return;
   notify();
   try {
     for (const w of changed) await db.updateWallet(w);
@@ -1001,11 +1031,21 @@ export function totalSaldo() {
 export function walletsWithSaldo() {
   return state.wallets
     .slice()
-    .sort((a, b) => {
-      if (!!a.isPrimary !== !!b.isPrimary) return a.isPrimary ? -1 : 1;
-      return (a.createdAt || 0) - (b.createdAt || 0);
-    })
+    .sort(compareWalletOrder)
     .map((w) => ({ wallet: w, saldo: walletSaldo(w.id) }));
+}
+
+/**
+ * Sort comparator for wallets by manual `order`, falling back to primary-first
+ * then creation order when `order` is absent.
+ * @param {import('../types.js').Wallet} a @param {import('../types.js').Wallet} b
+ */
+function compareWalletOrder(a, b) {
+  const ao = typeof a.order === 'number' ? a.order : Infinity;
+  const bo = typeof b.order === 'number' ? b.order : Infinity;
+  if (ao !== bo) return ao - bo;
+  if (!!a.isPrimary !== !!b.isPrimary) return a.isPrimary ? -1 : 1;
+  return (a.createdAt || 0) - (b.createdAt || 0);
 }
 
 /**
