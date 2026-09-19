@@ -42,6 +42,20 @@ export function monthOf(isoDate) {
 }
 
 /**
+ * The month key before the given one, e.g. '2026-01' -> '2025-12'.
+ * @param {string} monthKey 'YYYY-MM'
+ * @returns {string}
+ */
+export function prevMonth(monthKey) {
+  const [y, m] = (monthKey || '').split('-').map(Number);
+  if (!y || !m) return monthKey || '';
+  const d = new Date(y, m - 2, 1); // m-1 is this month; m-2 is previous
+  const py = d.getFullYear();
+  const pm = String(d.getMonth() + 1).padStart(2, '0');
+  return `${py}-${pm}`;
+}
+
+/**
  * Human-friendly month label, e.g. '2026-09' -> 'September 2026'.
  * @param {string} monthKey
  * @returns {string}

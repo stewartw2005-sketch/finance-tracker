@@ -16,6 +16,7 @@ import { renderBudget } from './views/budget.js';
 import { renderAssets } from './views/assets.js';
 import { renderDebts } from './views/debts.js';
 import { renderInvestments } from './views/investments.js';
+import { renderLaporan } from './views/laporan.js';
 import { openTransactionForm } from './views/transactionForm.js';
 
 /**
@@ -127,6 +128,9 @@ function renderActiveView(main) {
       break;
     case 'investasi':
       renderInvestments(main);
+      break;
+    case 'laporan':
+      renderLaporan(main);
       break;
     default:
       // Secondary sections not yet implemented in this phase.

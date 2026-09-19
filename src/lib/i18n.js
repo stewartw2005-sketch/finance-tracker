@@ -129,6 +129,20 @@ export const t = {
     investDeleteFailed: 'Gagal menghapus investasi.',
   },
 
+  laporan: {
+    title: 'Laporan',
+    month: 'Bulan',
+    income: 'Pemasukan',
+    expenses: 'Pengeluaran',
+    netSavings: 'Tabungan Bersih',
+    vsLastMonth: 'vs bulan lalu',
+    na: '—',
+    spendingByCategory: 'Pengeluaran per Kategori',
+    topExpenses: 'Pengeluaran Terbesar',
+    noExpenses: 'Belum ada pengeluaran bulan ini.',
+    noData: 'Belum ada data untuk bulan ini.',
+  },
+
   investasi: {
     title: 'Investasi',
     totalValue: 'Total Nilai Investasi',

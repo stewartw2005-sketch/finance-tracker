@@ -10,7 +10,7 @@
  * @typedef {import('../types.js').CategorySpend} CategorySpend
  */
 import * as db from '../data/db.js';
-import { currentMonth, monthOf, isToday, isYesterday, formatDateLabel, todayISO } from '../lib/dates.js';
+import { currentMonth, monthOf, isToday, isYesterday, formatDateLabel, todayISO, prevMonth } from '../lib/dates.js';
 import { makeId } from '../lib/validation.js';
 import { t } from '../lib/i18n.js';
 
@@ -1408,4 +1408,53 @@ export function investmentsSorted() {
   return state.investments
     .slice()
     .sort((a, b) => (b.currentValue || 0) - (a.currentValue || 0));
+}
+
+
+// ---- Laporan / report selectors (Req 20) ----------------------------------
+
+/**
+ * Monthly report figures (Req 20.1): income, expenses, and net savings
+ * (income − expenses) for a month. Uses raw transaction totals for the month.
+ * @param {string} [month]
+ * @returns {{ month:string, income:number, expenses:number, netSavings:number }}
+ */
+export function monthlyReport(month = state.selectedMonth) {
+  const s = selectMonthlySummary(month);
+  return {
+    month,
+    income: s.totalIncome,
+    expenses: s.totalExpenses,
+    netSavings: s.totalIncome - s.totalExpenses,
+  };
+}
+
+/**
+ * Percentage change vs the previous month for income and expenses (Req 20.2).
+ * Each field is null when the previous month's figure is 0/absent (N/A,
+ * avoids divide-by-zero, Req 20.3).
+ * @param {string} [month]
+ * @returns {{ incomePct:(number|null), expensePct:(number|null) }}
+ */
+export function previousMonthComparison(month = state.selectedMonth) {
+  const cur = monthlyReport(month);
+  const prev = monthlyReport(prevMonth(month));
+  const pct = (curVal, prevVal) =>
+    prevVal > 0 ? ((curVal - prevVal) / prevVal) * 100 : null;
+  return {
+    incomePct: pct(cur.income, prev.income),
+    expensePct: pct(cur.expenses, prev.expenses),
+  };
+}
+
+/**
+ * Top expense transactions for a month, largest first (Req 20.5).
+ * @param {string} [month] @param {number} [n=5]
+ * @returns {import('../types.js').Transaction[]}
+ */
+export function topExpenses(month = state.selectedMonth, n = 5) {
+  return selectTransactionsForMonth(month)
+    .filter((tx) => tx.type === 'expense')
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, n);
 }
