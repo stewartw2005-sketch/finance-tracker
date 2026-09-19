@@ -10,13 +10,14 @@
  */
 
 const DB_NAME = 'finance-tracker';
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 const STORE_TX = 'transactions';
 const STORE_CAT = 'categories';
 const STORE_WALLET = 'wallets';
 const STORE_BUDGET = 'budget';
 const STORE_ASSET = 'assets';
 const STORE_DEBT = 'debts';
+const STORE_INVEST = 'investments';
 
 /** Stable id for the seeded default cash wallet (Req 21.2). */
 export const DEFAULT_WALLET_ID = 'tunai';
@@ -94,6 +95,10 @@ function openDB() {
       // v5 stores (Req 18)
       if (!db.objectStoreNames.contains(STORE_DEBT)) {
         db.createObjectStore(STORE_DEBT, { keyPath: 'id' });
+      }
+      // v6 stores (Req 19)
+      if (!db.objectStoreNames.contains(STORE_INVEST)) {
+        db.createObjectStore(STORE_INVEST, { keyPath: 'id' });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -371,6 +376,33 @@ export async function deleteDebt(id) {
   await run(STORE_DEBT, 'readwrite', (s) => s.delete(id));
 }
 
+// ---- Investments (Req 19) -------------------------------------------------
+
+/** @returns {Promise<import('../types.js').Investment[]>} */
+export async function getAllInvestments() {
+  try {
+    const all = await run(STORE_INVEST, 'readonly', (s) => s.getAll());
+    return Array.isArray(all) ? all.filter(isValidInvestment) : [];
+  } catch {
+    return []; // Safe fallback (Req 9.3)
+  }
+}
+
+/** @param {import('../types.js').Investment} inv @returns {Promise<void>} */
+export async function addInvestment(inv) {
+  await run(STORE_INVEST, 'readwrite', (s) => s.put(inv));
+}
+
+/** @param {import('../types.js').Investment} inv @returns {Promise<void>} */
+export async function updateInvestment(inv) {
+  await run(STORE_INVEST, 'readwrite', (s) => s.put(inv));
+}
+
+/** @param {string} id @returns {Promise<void>} */
+export async function deleteInvestment(id) {
+  await run(STORE_INVEST, 'readwrite', (s) => s.delete(id));
+}
+
 // ---- Validation guards for corrupt records --------------------------------
 
 /** @param {any} t @returns {t is Transaction} */
@@ -429,5 +461,18 @@ function isValidDebt(d) {
     Number.isFinite(d.total) &&
     typeof d.paid === 'number' &&
     Number.isFinite(d.paid)
+  );
+}
+
+/** @param {any} v @returns {v is import('../types.js').Investment} */
+function isValidInvestment(v) {
+  return (
+    v &&
+    typeof v.id === 'string' &&
+    typeof v.name === 'string' &&
+    typeof v.invested === 'number' &&
+    Number.isFinite(v.invested) &&
+    typeof v.currentValue === 'number' &&
+    Number.isFinite(v.currentValue)
   );
 }

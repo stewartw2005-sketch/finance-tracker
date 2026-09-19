@@ -1531,3 +1531,44 @@ textarea.invalid {
 .debt-due.overdue {
   color: var(--expense);
 }
+
+
+/* ---- Investasi --------------------------------------------- */
+
+.invest-total-gain {
+  margin-top: 6px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.invest-total-gain.positive {
+  color: var(--income);
+}
+.invest-total-gain.negative {
+  color: var(--expense);
+}
+
+.invest-values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 8px 0 6px;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.invest-value-item.muted {
+  color: var(--text-muted);
+}
+
+.invest-gain {
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.invest-gain.positive {
+  color: var(--income);
+}
+.invest-gain.negative {
+  color: var(--expense);
+}

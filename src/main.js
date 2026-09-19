@@ -15,6 +15,7 @@ import { renderLainnya } from './views/lainnya.js';
 import { renderBudget } from './views/budget.js';
 import { renderAssets } from './views/assets.js';
 import { renderDebts } from './views/debts.js';
+import { renderInvestments } from './views/investments.js';
 import { openTransactionForm } from './views/transactionForm.js';
 
 /**
@@ -123,6 +124,9 @@ function renderActiveView(main) {
       break;
     case 'utang':
       renderDebts(main);
+      break;
+    case 'investasi':
+      renderInvestments(main);
       break;
     default:
       // Secondary sections not yet implemented in this phase.
