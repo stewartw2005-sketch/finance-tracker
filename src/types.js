@@ -32,6 +32,7 @@
  *                                      negative for credit-card wallets.
  * @property {boolean} [isPrimary]   - the primary ("UTAMA") wallet; exactly one
  * @property {string} [accountNumber]- optional account/rekening number
+ * @property {number} [order]        - manual sort position (ascending) in Dompet list
  * @property {number} createdAt      - epoch ms
  */
 

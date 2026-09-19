@@ -28,18 +28,25 @@ export function renderWallets(container) {
   const hidden = store.isSaldoHidden();
   const total = store.totalSaldo();
 
+  let listNode;
+  if (rows.length === 0) {
+    listNode = el('div', { class: 'empty' }, [
+      el('div', {}, t.wallet.emptyTitle),
+      el('div', { style: 'font-size:0.85rem;margin-top:4px' }, t.wallet.emptyHint),
+    ]);
+  } else {
+    listNode = el('ul', { class: 'wallet-list' }, rows.map(({ wallet, saldo }) => walletRow(wallet, saldo, hidden)));
+    // Enable drag-to-reorder via the grip handle on each row.
+    setupWalletDrag(listNode);
+  }
+
   container.append(
     totalSaldoCard(total, hidden),
     el('div', { style: 'margin:14px 0' },
       el('button', { class: 'btn primary full', onClick: () => openWalletForm() }, '+ ' + t.wallet.addButton)
     ),
     el('div', { class: 'section-title' }, t.wallet.yourWallets),
-    rows.length === 0
-      ? el('div', { class: 'empty' }, [
-          el('div', {}, t.wallet.emptyTitle),
-          el('div', { style: 'font-size:0.85rem;margin-top:4px' }, t.wallet.emptyHint),
-        ])
-      : el('ul', { class: 'wallet-list' }, rows.map(({ wallet, saldo }) => walletRow(wallet, saldo, hidden)))
+    listNode
   );
 }
 
@@ -88,6 +95,14 @@ function walletRow(w, saldo, hidden) {
 
   const isOpen = expandedId === w.id;
 
+  // Drag handle (grip): press-and-drag to reorder. Kept separate from the
+  // row button so tapping the row still expands it.
+  const handle = el(
+    'span',
+    { class: 'wallet-drag', 'aria-label': t.wallet.dragHandle, role: 'button' },
+    icon('grip', { size: 18 })
+  );
+
   // The clickable row header (the whole row is the toggle).
   const rowBtn = el(
     'button',
@@ -117,10 +132,67 @@ function walletRow(w, saldo, hidden) {
     ]
   );
 
-  const children = [rowBtn];
+  const header = el('div', { class: 'wallet-row-wrap' }, [handle, rowBtn]);
+  const children = [header];
   if (isOpen) children.push(walletPanel(w));
 
-  return el('li', { class: 'wallet-item' + (isOpen ? ' open' : '') }, children);
+  return el('li', { class: 'wallet-item' + (isOpen ? ' open' : ''), dataset: { id: w.id } }, children);
+}
+
+/**
+ * Wire pointer-based drag-to-reorder on the wallet list. Dragging starts from
+ * a row's `.wallet-drag` handle; on drop the new order is persisted.
+ * @param {HTMLElement} listEl - the <ul class="wallet-list">
+ */
+function setupWalletDrag(listEl) {
+  /** @type {HTMLElement|null} */
+  let dragItem = null;
+  let startY = 0;
+  let moved = false;
+
+  listEl.addEventListener('pointerdown', (e) => {
+    const handle = e.target instanceof Element ? e.target.closest('.wallet-drag') : null;
+    if (!handle) return;
+    const item = handle.closest('.wallet-item');
+    if (!item) return;
+    e.preventDefault();
+    dragItem = /** @type {HTMLElement} */ (item);
+    startY = e.clientY;
+    moved = false;
+    dragItem.classList.add('dragging');
+    handle.setPointerCapture?.(e.pointerId);
+  });
+
+  listEl.addEventListener('pointermove', (e) => {
+    if (!dragItem) return;
+    if (Math.abs(e.clientY - startY) > 3) moved = true;
+    // Find the sibling we're hovering over and reorder in the DOM.
+    const siblings = Array.from(listEl.querySelectorAll('.wallet-item')).filter((n) => n !== dragItem);
+    let placed = false;
+    for (const sib of siblings) {
+      const rect = sib.getBoundingClientRect();
+      if (e.clientY < rect.top + rect.height / 2) {
+        if (sib !== dragItem.nextSibling) listEl.insertBefore(dragItem, sib);
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) listEl.appendChild(dragItem);
+  });
+
+  function endDrag(e) {
+    if (!dragItem) return;
+    dragItem.classList.remove('dragging');
+    dragItem = null;
+    if (moved) {
+      const ids = Array.from(listEl.querySelectorAll('.wallet-item')).map(
+        (n) => /** @type {HTMLElement} */ (n).dataset.id
+      );
+      store.reorderWallets(ids);
+    }
+  }
+  listEl.addEventListener('pointerup', endDrag);
+  listEl.addEventListener('pointercancel', endDrag);
 }
 
 /**

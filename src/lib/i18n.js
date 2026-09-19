@@ -98,6 +98,7 @@ export const t = {
     primaryBadge: 'UTAMA',
     setPrimary: 'Jadikan Utama',
     actionsAria: 'Aksi dompet',
+    dragHandle: 'Seret untuk mengurutkan',
     types: {
       bank: 'Bank',
       ewallet: 'E-Wallet',
