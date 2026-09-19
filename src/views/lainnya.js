@@ -17,7 +17,7 @@ export function renderLainnya(container, navigate) {
   /** @type {{ id: string, icon: import('../lib/icons.js').icon, label: string, ready?: boolean, onClick?: () => void }[]} */
   const items = [
     { id: 'budget', icon: 'target', label: t.lainnya.budget, ready: true, onClick: () => navigate('budget') },
-    { id: 'aset', icon: 'diamond', label: t.lainnya.aset },
+    { id: 'aset', icon: 'diamond', label: t.lainnya.aset, ready: true, onClick: () => navigate('aset') },
     { id: 'utang', icon: 'debt', label: t.lainnya.utang },
     { id: 'investasi', icon: 'chart', label: t.lainnya.investasi },
     { id: 'laporan', icon: 'report', label: t.lainnya.laporan },

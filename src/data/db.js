@@ -10,11 +10,12 @@
  */
 
 const DB_NAME = 'finance-tracker';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 const STORE_TX = 'transactions';
 const STORE_CAT = 'categories';
 const STORE_WALLET = 'wallets';
 const STORE_BUDGET = 'budget';
+const STORE_ASSET = 'assets';
 
 /** Stable id for the seeded default cash wallet (Req 21.2). */
 export const DEFAULT_WALLET_ID = 'tunai';
@@ -84,6 +85,10 @@ function openDB() {
       // v3 stores (Req 16)
       if (!db.objectStoreNames.contains(STORE_BUDGET)) {
         db.createObjectStore(STORE_BUDGET, { keyPath: 'id' });
+      }
+      // v4 stores (Req 17)
+      if (!db.objectStoreNames.contains(STORE_ASSET)) {
+        db.createObjectStore(STORE_ASSET, { keyPath: 'id' });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -307,6 +312,33 @@ export async function saveBudget(budget) {
   await run(STORE_BUDGET, 'readwrite', (s) => s.put({ ...budget, id: BUDGET_ID }));
 }
 
+// ---- Assets (Req 17) ------------------------------------------------------
+
+/** @returns {Promise<import('../types.js').Asset[]>} */
+export async function getAllAssets() {
+  try {
+    const all = await run(STORE_ASSET, 'readonly', (s) => s.getAll());
+    return Array.isArray(all) ? all.filter(isValidAsset) : [];
+  } catch {
+    return []; // Safe fallback (Req 9.3)
+  }
+}
+
+/** @param {import('../types.js').Asset} a @returns {Promise<void>} */
+export async function addAsset(a) {
+  await run(STORE_ASSET, 'readwrite', (s) => s.put(a));
+}
+
+/** @param {import('../types.js').Asset} a @returns {Promise<void>} */
+export async function updateAsset(a) {
+  await run(STORE_ASSET, 'readwrite', (s) => s.put(a));
+}
+
+/** @param {string} id @returns {Promise<void>} */
+export async function deleteAsset(id) {
+  await run(STORE_ASSET, 'readwrite', (s) => s.delete(id));
+}
+
 // ---- Validation guards for corrupt records --------------------------------
 
 /** @param {any} t @returns {t is Transaction} */
@@ -341,4 +373,16 @@ function isValidWallet(w) {
 /** @param {any} b @returns {boolean} */
 function isValidBudget(b) {
   return b && typeof b === 'object' && typeof b.id === 'string';
+}
+
+/** @param {any} a @returns {a is import('../types.js').Asset} */
+function isValidAsset(a) {
+  return (
+    a &&
+    typeof a.id === 'string' &&
+    typeof a.name === 'string' &&
+    typeof a.value === 'number' &&
+    Number.isFinite(a.value) &&
+    (a.assetClass === 'liquid' || a.assetClass === 'fixed')
+  );
 }

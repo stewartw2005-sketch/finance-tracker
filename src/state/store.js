@@ -29,6 +29,7 @@ import { t } from '../lib/i18n.js';
  * @property {Transaction[]} transactions
  * @property {Category[]} categories
  * @property {import('../types.js').Wallet[]} wallets
+ * @property {import('../types.js').Asset[]} assets
  * @property {import('../types.js').BudgetSettings} budget
  * @property {string} selectedMonth   - 'YYYY-MM'
  * @property {string} filterCategory  - category id or '' for all
@@ -54,6 +55,8 @@ const state = {
   transactions: [],
   categories: [],
   wallets: [],
+  /** @type {import('../types.js').Asset[]} */
+  assets: [],
   /** @type {import('../types.js').BudgetSettings} */
   budget: {
     id: 'singleton',
@@ -107,10 +110,12 @@ export async function init() {
     const wallets = await db.seedDefaultWalletAndMigrate(t.wallet.defaultName);
     const transactions = await db.getAllTransactions();
     const budget = await db.getBudget();
+    const assets = await db.getAllAssets();
     state.categories = categories;
     state.wallets = wallets;
     state.transactions = transactions;
     state.budget = budget;
+    state.assets = assets;
     state.lastWalletId =
       (wallets.find((w) => w.id === db.DEFAULT_WALLET_ID) || wallets[0] || {}).id || '';
   } catch {
@@ -118,6 +123,7 @@ export async function init() {
     state.categories = db.DEFAULT_CATEGORIES.slice();
     state.wallets = [];
     state.transactions = [];
+    state.assets = [];
     state.error = t.errors.loadFailed;
   } finally {
     state.loaded = true;
@@ -440,6 +446,69 @@ export function setCategoryAmount(categoryId, amount) {
   else delete map[categoryId];
   state.budget = { ...state.budget, groupCategoryAmounts: map };
   return persistBudget();
+}
+
+// ---- Asset mutations (Req 17) ---------------------------------------------
+
+/**
+ * Add a manual asset.
+ * @param {{name:string, assetClass:import('../types.js').AssetClass, value:number}} data
+ * @returns {Promise<import('../types.js').Asset>}
+ */
+export async function addAsset(data) {
+  /** @type {import('../types.js').Asset} */
+  const asset = {
+    id: makeId(),
+    name: data.name.trim(),
+    assetClass: data.assetClass,
+    value: Math.round(data.value) || 0,
+    createdAt: Date.now(),
+  };
+  state.assets.push(asset);
+  notify();
+  try {
+    await db.addAsset(asset);
+  } catch {
+    setError(t.errors.assetSaveFailed);
+  }
+  return asset;
+}
+
+/**
+ * Edit a manual asset.
+ * @param {string} id
+ * @param {{name:string, assetClass:import('../types.js').AssetClass, value:number}} data
+ * @returns {Promise<void>}
+ */
+export async function editAsset(id, data) {
+  const idx = state.assets.findIndex((a) => a.id === id);
+  if (idx === -1) return;
+  /** @type {import('../types.js').Asset} */
+  const updated = {
+    ...state.assets[idx],
+    name: data.name.trim(),
+    assetClass: data.assetClass,
+    value: Math.round(data.value) || 0,
+  };
+  state.assets[idx] = updated;
+  notify();
+  try {
+    await db.updateAsset(updated);
+  } catch {
+    setError(t.errors.assetUpdateFailed);
+  }
+}
+
+/** @param {string} id @returns {Promise<void>} */
+export async function removeAsset(id) {
+  if (!state.assets.some((a) => a.id === id)) return;
+  state.assets = state.assets.filter((a) => a.id !== id);
+  notify();
+  try {
+    await db.deleteAsset(id);
+  } catch {
+    setError(t.errors.assetDeleteFailed);
+  }
 }
 
 /** @param {string} month 'YYYY-MM' */
@@ -935,4 +1004,90 @@ export function dailyBudgetRemaining() {
   if (remainingDays <= 0) return null;
 
   return Math.round(remainingBudget / remainingDays);
+}
+
+
+// ---- Asset / net worth selectors (Req 17) ---------------------------------
+
+/**
+ * Total value of manual assets in a class.
+ * @param {import('../types.js').AssetClass} cls
+ * @returns {number}
+ */
+function assetsTotal(cls) {
+  return state.assets
+    .filter((a) => a.assetClass === cls)
+    .reduce((s, a) => s + (a.value || 0), 0);
+}
+
+/**
+ * Breakdown of the three net-worth components (Req 17.3):
+ * wallets total, liquid assets total, fixed assets total.
+ * @returns {{ walletsTotal:number, liquidTotal:number, fixedTotal:number }}
+ */
+export function assetsBreakdown() {
+  return {
+    walletsTotal: totalSaldo(),
+    liquidTotal: assetsTotal('liquid'),
+    fixedTotal: assetsTotal('fixed'),
+  };
+}
+
+/**
+ * Estimated total net worth = wallets + liquid + fixed (Req 17.1).
+ * Credit-card negatives already subtract via totalSaldo().
+ * @returns {number}
+ */
+export function netWorth() {
+  const b = assetsBreakdown();
+  return b.walletsTotal + b.liquidTotal + b.fixedTotal;
+}
+
+/**
+ * Average monthly expense over the last `window` months that have expense
+ * data (Req 17.4). Returns 0 when there is no expense history.
+ * @param {number} [window=3]
+ * @returns {number}
+ */
+export function avgMonthlyExpense(window = 3) {
+  // Sum expenses per month key.
+  /** @type {Map<string, number>} */
+  const byMonth = new Map();
+  for (const tx of state.transactions) {
+    if (tx.type !== 'expense') continue;
+    const m = monthOf(tx.date);
+    byMonth.set(m, (byMonth.get(m) || 0) + tx.amount);
+  }
+  if (byMonth.size === 0) return 0;
+  // Take the most recent `window` months that have expenses.
+  const months = Array.from(byMonth.keys()).sort((a, b) => (a < b ? 1 : -1));
+  const pick = months.slice(0, window);
+  const sum = pick.reduce((s, m) => s + (byMonth.get(m) || 0), 0);
+  return Math.round(sum / pick.length);
+}
+
+/**
+ * Liquid net worth for the runway calc: non-credit wallet saldo + liquid
+ * assets (credit cards and fixed assets excluded).
+ * @returns {number}
+ */
+export function liquidNetWorth() {
+  let wallets = 0;
+  for (const w of state.wallets) {
+    if (w.type === 'credit') continue;
+    wallets += walletSaldo(w.id);
+  }
+  return wallets + assetsTotal('liquid');
+}
+
+/**
+ * Total Runway: how many months liquid net worth covers average monthly
+ * expenses (Req 17.4). Returns null when average expense is 0 (not-applicable,
+ * avoids divide-by-zero, Req 17.5).
+ * @returns {number|null}
+ */
+export function runwayMonths() {
+  const avg = avgMonthlyExpense(3);
+  if (avg <= 0) return null;
+  return liquidNetWorth() / avg;
 }

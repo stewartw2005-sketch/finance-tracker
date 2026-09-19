@@ -62,6 +62,19 @@
  */
 
 /**
+ * @typedef {'liquid' | 'fixed'} AssetClass
+ */
+
+/**
+ * @typedef {Object} Asset
+ * @property {string} id             - uuid
+ * @property {string} name           - display name
+ * @property {AssetClass} assetClass - 'liquid' (Aset Likuid) | 'fixed' (Aset Tetap)
+ * @property {number} value          - current value (Rupiah)
+ * @property {number} createdAt      - epoch ms
+ */
+
+/**
  * @typedef {Object} MonthlySummary
  * @property {string} month        - 'YYYY-MM'
  * @property {number} totalIncome
