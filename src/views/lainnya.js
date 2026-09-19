@@ -18,7 +18,7 @@ export function renderLainnya(container, navigate) {
   const items = [
     { id: 'budget', icon: 'target', label: t.lainnya.budget, ready: true, onClick: () => navigate('budget') },
     { id: 'aset', icon: 'diamond', label: t.lainnya.aset, ready: true, onClick: () => navigate('aset') },
-    { id: 'utang', icon: 'debt', label: t.lainnya.utang },
+    { id: 'utang', icon: 'debt', label: t.lainnya.utang, ready: true, onClick: () => navigate('utang') },
     { id: 'investasi', icon: 'chart', label: t.lainnya.investasi },
     { id: 'laporan', icon: 'report', label: t.lainnya.laporan },
     { id: 'kategori', icon: 'tag', label: t.lainnya.kategori, ready: true, onClick: () => openCategoryManager() },
