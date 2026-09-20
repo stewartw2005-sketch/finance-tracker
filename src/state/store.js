@@ -236,8 +236,13 @@ export async function removeTransaction(id) {
  * @returns {Promise<Category>}
  */
 export async function addCategory(name, kind = 'expense') {
+  // Append to the end of the manual order within this kind.
+  const maxOrder = state.categories.reduce(
+    (m, c) => ((c.kind || 'expense') === kind && typeof c.order === 'number' && c.order > m ? c.order : m),
+    -1
+  );
   /** @type {Category} */
-  const cat = { id: makeId(), name: name.trim(), isDefault: false, kind };
+  const cat = { id: makeId(), name: name.trim(), isDefault: false, kind, order: maxOrder + 1 };
   state.categories.push(cat);
   notify();
   try {
@@ -265,6 +270,34 @@ export async function removeCategory(id) {
     await db.deleteCategory(id);
   } catch {
     setError(t.errors.categoryDeleteFailed);
+  }
+}
+
+/**
+ * Reorder the categories of one kind to match the given id sequence
+ * (drag-to-reorder in Kelola Kategori). Assigns each an `order` index; this
+ * order is honored in the manager list and the transaction form dropdown.
+ * @param {import('../types.js').TxType} kind
+ * @param {string[]} orderedIds - category ids in the desired order
+ * @returns {Promise<void>}
+ */
+export async function reorderCategories(kind, orderedIds) {
+  const changed = [];
+  orderedIds.forEach((id, i) => {
+    const c = state.categories.find(
+      (x) => x.id === id && (x.kind || 'expense') === kind
+    );
+    if (c && c.order !== i) {
+      c.order = i;
+      changed.push(c);
+    }
+  });
+  if (changed.length === 0) return;
+  notify();
+  try {
+    for (const c of changed) await db.addCategory(c);
+  } catch {
+    setError(t.errors.categorySaveFailed);
   }
 }
 
@@ -986,13 +1019,22 @@ export function categoryName(id) {
 }
 
 /**
- * Categories for a given transaction kind (income/expense). Categories with
- * no `kind` are treated as expense for backward compatibility.
+ * Categories for a given transaction kind (income/expense), sorted by manual
+ * `order` (falls back to name when order is absent). This ordering is honored
+ * everywhere — Kelola Kategori and the transaction form dropdown — so they
+ * always match. Categories with no `kind` are treated as expense.
  * @param {import('../types.js').TxType} kind
  * @returns {import('../types.js').Category[]}
  */
 export function categoriesByKind(kind) {
-  return state.categories.filter((c) => (c.kind || 'expense') === kind);
+  return state.categories
+    .filter((c) => (c.kind || 'expense') === kind)
+    .sort((a, b) => {
+      const ao = typeof a.order === 'number' ? a.order : Infinity;
+      const bo = typeof b.order === 'number' ? b.order : Infinity;
+      if (ao !== bo) return ao - bo;
+      return (a.name || '').localeCompare(b.name || '');
+    });
 }
 
 /**
