@@ -20,7 +20,7 @@ const INV_TYPES = /** @type {InvestmentType[]} */ (['saham', 'reksadana', 'kript
  * @param {HTMLElement} container
  */
 export function renderInvestments(container) {
-  const hidden = store.isSaldoHidden();
+  const hidden = store.isHidden('investasi');
   const totals = store.investTotals();
   const list = store.investmentsSorted();
 
@@ -51,7 +51,7 @@ function totalsCard(totals, hidden) {
           class: 'saldo-lock',
           'aria-label': hidden ? t.wallet.showBalance : t.wallet.hideBalance,
           'aria-pressed': hidden ? 'true' : 'false',
-          onClick: () => store.toggleSaldoHidden(),
+          onClick: () => store.toggleHidden('investasi'),
         },
         icon(hidden ? 'lock' : 'unlock', { size: 18 })
       ),

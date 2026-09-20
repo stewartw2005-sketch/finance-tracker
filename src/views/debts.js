@@ -18,7 +18,7 @@ import { openModal, closeModal, confirmDialog } from './modal.js';
  * @param {HTMLElement} container
  */
 export function renderDebts(container) {
-  const hidden = store.isSaldoHidden();
+  const hidden = store.isHidden('utang');
   const total = store.totalDebt();
   const debts = store.debtsSorted();
 
@@ -48,7 +48,7 @@ function totalDebtCard(total, hidden) {
           class: 'saldo-lock',
           'aria-label': hidden ? t.wallet.showBalance : t.wallet.hideBalance,
           'aria-pressed': hidden ? 'true' : 'false',
-          onClick: () => store.toggleSaldoHidden(),
+          onClick: () => store.toggleHidden('utang'),
         },
         icon(hidden ? 'lock' : 'unlock', { size: 18 })
       ),

@@ -37,18 +37,31 @@ import { t } from '../lib/i18n.js';
  * @property {string} filterCategory  - category id or '' for all
  * @property {TxFilters} txFilters    - advanced Transaksi filters + search
  * @property {string} lastWalletId    - last wallet used on a transaction
- * @property {boolean} saldoHidden    - hide balances for privacy (display only)
+ * @property {Record<string, boolean>} hidden - per-section privacy locks (display only)
  * @property {boolean} loaded
  * @property {string} error           - non-blocking error message ('' if none)
  * @property {string} notice          - transient confirmation toast ('' if none)
  */
 
-/** Read the persisted balance-privacy preference. */
-function initialSaldoHidden() {
+const HIDDEN_LS_KEY = 'hiddenSections';
+
+/**
+ * Read the persisted per-section privacy locks. Migrates the old single
+ * `saldoHidden` flag (which locked everything) forward if present.
+ * @returns {Record<string, boolean>}
+ */
+function initialHidden() {
   try {
-    return typeof localStorage !== 'undefined' && localStorage.getItem('saldoHidden') === '1';
+    if (typeof localStorage === 'undefined') return {};
+    const raw = localStorage.getItem(HIDDEN_LS_KEY);
+    if (raw) return JSON.parse(raw) || {};
+    // Back-compat: old global flag.
+    if (localStorage.getItem('saldoHidden') === '1') {
+      return { dompet: true, sekilas: true, ringkasan: true, aset: true, utang: true, investasi: true };
+    }
+    return {};
   } catch {
-    return false;
+    return {};
   }
 }
 
@@ -76,7 +89,7 @@ const state = {
   filterCategory: '',
   txFilters: { from: '', to: '', walletId: '', categoryId: '', type: '', search: '' },
   lastWalletId: '',
-  saldoHidden: initialSaldoHidden(),
+  hidden: initialHidden(),
   loaded: false,
   error: '',
   notice: '',
@@ -699,19 +712,25 @@ export function setFilterCategory(categoryId) {
 }
 
 /**
- * Whether balances are hidden for privacy (a display-only preference).
+ * Whether a section's amounts are hidden for privacy (display-only). Each
+ * section (e.g. 'dompet', 'sekilas', 'ringkasan', 'aset', 'utang',
+ * 'investasi') has its own independent lock.
+ * @param {string} key
  * @returns {boolean}
  */
-export function isSaldoHidden() {
-  return state.saldoHidden;
+export function isHidden(key) {
+  return !!state.hidden[key];
 }
 
-/** Toggle balance privacy; persisted as a lightweight display preference. */
-export function toggleSaldoHidden() {
-  state.saldoHidden = !state.saldoHidden;
+/**
+ * Toggle a section's privacy lock; persisted per section.
+ * @param {string} key
+ */
+export function toggleHidden(key) {
+  state.hidden = { ...state.hidden, [key]: !state.hidden[key] };
   try {
     if (typeof localStorage !== 'undefined') {
-      localStorage.setItem('saldoHidden', state.saldoHidden ? '1' : '0');
+      localStorage.setItem(HIDDEN_LS_KEY, JSON.stringify(state.hidden));
     }
   } catch {
     /* ignore storage errors */

@@ -22,34 +22,44 @@ import { monthSelect } from './monthSelect.js';
 export function renderBeranda(container, navigate) {
   const month = store.getState().selectedMonth;
   const summary = store.selectMonthlySummary(month);
-  const hidden = store.isSaldoHidden();
+  // Independent per-section privacy locks.
+  const sekilasHidden = store.isHidden('sekilas');
+  const ringkasanHidden = store.isHidden('ringkasan');
 
   container.append(
     greetingHeader(),
-    glanceCard(summary, hidden),
+    glanceCard(summary, sekilasHidden),
     el('div', { class: 'card-head' }, [
       el('div', { class: 'section-title', style: 'margin:0' }, t.beranda.ringkasanBulan),
-      el(
-        'button',
-        {
-          class: 'saldo-lock',
-          'aria-label': hidden ? t.wallet.showBalance : t.wallet.hideBalance,
-          'aria-pressed': hidden ? 'true' : 'false',
-          onClick: () => store.toggleSaldoHidden(),
-        },
-        icon(hidden ? 'lock' : 'unlock', { size: 18 })
-      ),
+      lockButton('ringkasan', ringkasanHidden),
     ]),
     el('label', { class: 'field', style: 'margin-bottom:16px' }, [
       el('span', { class: 'field-label' }, t.dashboard.month),
       monthSelect(),
     ]),
-    monthSummaryGrid(month, summary, hidden),
-    comparisonCard(month, hidden),
-    calendarCard(month, hidden),
+    monthSummaryGrid(month, summary, ringkasanHidden),
+    comparisonCard(month),
+    calendarCard(month, ringkasanHidden),
+    quickAccess(navigate),
     recentCard(navigate),
-    topExpensesCard(month, hidden),
-    quickAccess(navigate)
+    topExpensesCard(month, ringkasanHidden)
+  );
+}
+
+/**
+ * A privacy lock toggle button for a given section key.
+ * @param {string} key @param {boolean} hidden
+ */
+function lockButton(key, hidden) {
+  return el(
+    'button',
+    {
+      class: 'saldo-lock',
+      'aria-label': hidden ? t.wallet.showBalance : t.wallet.hideBalance,
+      'aria-pressed': hidden ? 'true' : 'false',
+      onClick: () => store.toggleHidden(key),
+    },
+    icon(hidden ? 'lock' : 'unlock', { size: 18 })
   );
 }
 
@@ -97,16 +107,7 @@ function glanceCard(summary, hidden) {
         },
         amountText
       ),
-      el(
-        'button',
-        {
-          class: 'saldo-lock',
-          'aria-label': hidden ? t.wallet.showBalance : t.wallet.hideBalance,
-          'aria-pressed': hidden ? 'true' : 'false',
-          onClick: () => store.toggleSaldoHidden(),
-        },
-        icon(hidden ? 'lock' : 'unlock', { size: 18 })
-      ),
+      lockButton('sekilas', hidden),
     ]),
     el('div', { class: 'glance-caption' }, [el('span', {}, t.beranda.budgetHarianTersisa)]),
     // Today's income / expenses (daily), WIB.
@@ -156,7 +157,7 @@ function summaryCard(label, value, valueClass) {
 }
 
 /** Period comparison stats (income & expense vs last month). */
-function comparisonCard(month, hidden) {
+function comparisonCard(month) {
   const cmp = store.previousMonthComparison(month);
   const row = (label, pct, kind) => {
     let text = t.beranda.vsLastMonth;

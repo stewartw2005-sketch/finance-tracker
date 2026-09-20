@@ -113,8 +113,8 @@ export function openCategoryManager() {
         ]);
       })
     );
-    return el('div', {}, [
-      el('div', { class: 'section-title' }, title),
+    return el('div', { class: 'cat-group' }, [
+      el('div', { class: 'cat-group-title ' + kind }, title),
       cats.length
         ? listNode
         : el('div', { class: 'field-hint', style: 'margin-bottom:4px' }, t.category.emptyKind),
