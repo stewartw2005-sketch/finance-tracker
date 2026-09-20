@@ -588,7 +588,34 @@ textarea.invalid {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 10px 14px;
+  padding: 10px 14px 10px 8px;
+}
+
+.cat-drag {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  color: var(--text-dim);
+  cursor: grab;
+  touch-action: none;
+}
+
+.cat-drag:active {
+  cursor: grabbing;
+  color: var(--text-muted);
+}
+
+.cat-item.settling {
+  transition: transform 0.18s ease;
+}
+
+.cat-item.dragging {
+  opacity: 0.9;
+  border-color: var(--accent-nav);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5);
+  position: relative;
+  z-index: 5;
 }
 
 .cat-name {

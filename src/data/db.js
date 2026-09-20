@@ -200,10 +200,11 @@ export async function seedDefaultCategoriesIfEmpty() {
   try {
     let existing = await getAllCategories();
 
-    // First run: seed everything.
+    // First run: seed everything with an initial per-kind order.
     if (existing.length === 0) {
-      for (const c of DEFAULT_CATEGORIES) await addCategory(c);
-      return DEFAULT_CATEGORIES.slice();
+      const seeded = DEFAULT_CATEGORIES.map((c, i) => ({ ...c, order: i }));
+      for (const c of seeded) await addCategory(c);
+      return seeded;
     }
 
     // Migration: backfill `kind` on categories that lack it.
@@ -221,6 +222,27 @@ export async function seedDefaultCategoriesIfEmpty() {
       if (!haveIds.has(c.id)) {
         await addCategory(c);
         existing.push(c);
+      }
+    }
+
+    // Migration: backfill a per-kind `order` for categories missing one.
+    // Preserve the current display order (alphabetical by name) so nothing
+    // visibly jumps on upgrade; new categories append after existing ones.
+    if (existing.some((c) => typeof c.order !== 'number')) {
+      for (const kind of ['expense', 'income']) {
+        const inKind = existing.filter((c) => (c.kind || 'expense') === kind);
+        // Start numbering after any already-ordered items in this kind.
+        let next = inKind.reduce(
+          (m, c) => (typeof c.order === 'number' && c.order >= m ? c.order + 1 : m),
+          0
+        );
+        const unordered = inKind
+          .filter((c) => typeof c.order !== 'number')
+          .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        for (const c of unordered) {
+          c.order = next++;
+          await addCategory(c);
+        }
       }
     }
 

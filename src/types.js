@@ -47,6 +47,7 @@
  * @property {boolean} isDefault     - whether this is a seeded default category
  * @property {TxType} [kind]         - 'income' | 'expense' — which transaction type it applies to
  * @property {BudgetGroup} [budgetGroup] - budget group assignment (Kebutuhan/Keinginan/Tabungan)
+ * @property {number} [order]        - manual sort position within its kind (ascending)
  */
 
 /**

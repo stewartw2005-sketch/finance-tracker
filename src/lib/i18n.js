@@ -362,6 +362,7 @@ export const t = {
     yourCategories: 'Kategori Anda',
     defaultBadge: 'Bawaan',
     emptyKind: 'Belum ada kategori.',
+    dragHandle: 'Seret untuk mengurutkan',
     deleteAria: (name) => `Hapus ${name}`,
     nameRequired: 'Masukkan nama kategori.',
     duplicate: 'Kategori itu sudah ada.',
