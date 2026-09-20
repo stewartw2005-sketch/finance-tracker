@@ -237,12 +237,20 @@ body {
 }
 
 .summary-card .value {
-  font-size: 1.4rem;
+  /* Scales down on narrow cards so big nominals (e.g. Rp100.000.000) stay on
+     one line without wrapping or horizontal scroll. */
+  font-size: clamp(0.95rem, 5.2vw, 1.35rem);
   font-weight: 650;
   font-variant-numeric: tabular-nums;
-  /* Keep large amounts inside the card instead of forcing horizontal scroll. */
-  overflow-wrap: anywhere;
-  word-break: break-word;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.02em;
+}
+
+/* The full-width net card has more room, so it can be a touch larger. */
+.summary-card.net .value {
+  font-size: clamp(1.1rem, 6vw, 1.6rem);
 }
 
 .value.income {
@@ -1775,4 +1783,39 @@ textarea.invalid {
 .quick-label {
   font-size: 0.78rem;
   text-align: center;
+}
+
+
+/* ---- Kelola Kategori grouped by kind ----------------------- */
+
+.cat-group {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  margin-top: 14px;
+}
+
+.cat-group-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin: 0 0 10px;
+  padding-left: 8px;
+  border-left: 3px solid var(--border);
+}
+
+.cat-group-title.expense {
+  color: var(--expense);
+  border-left-color: var(--expense);
+}
+
+.cat-group-title.income {
+  color: var(--income);
+  border-left-color: var(--income);
+}
+
+.cat-group .cat-item {
+  background: var(--surface);
 }

@@ -25,7 +25,7 @@ let expandedId = null;
  */
 export function renderWallets(container) {
   const rows = store.walletsWithSaldo();
-  const hidden = store.isSaldoHidden();
+  const hidden = store.isHidden('dompet');
   const total = store.totalSaldo();
 
   let listNode;
@@ -65,7 +65,7 @@ function totalSaldoCard(total, hidden) {
           class: 'saldo-lock',
           'aria-label': hidden ? t.wallet.showBalance : t.wallet.hideBalance,
           'aria-pressed': hidden ? 'true' : 'false',
-          onClick: () => store.toggleSaldoHidden(),
+          onClick: () => store.toggleHidden('dompet'),
         },
         icon(hidden ? 'lock' : 'unlock', { size: 18 })
       ),

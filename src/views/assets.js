@@ -18,7 +18,7 @@ import { openModal, closeModal, confirmDialog } from './modal.js';
  * @param {HTMLElement} container
  */
 export function renderAssets(container) {
-  const hidden = store.isSaldoHidden();
+  const hidden = store.isHidden('aset');
   const nw = store.netWorth();
   const b = store.assetsBreakdown();
   const runway = store.runwayMonths();
@@ -51,7 +51,7 @@ function netWorthCard(nw, hidden) {
           class: 'saldo-lock',
           'aria-label': hidden ? t.wallet.showBalance : t.wallet.hideBalance,
           'aria-pressed': hidden ? 'true' : 'false',
-          onClick: () => store.toggleSaldoHidden(),
+          onClick: () => store.toggleHidden('aset'),
         },
         icon(hidden ? 'lock' : 'unlock', { size: 18 })
       ),
