@@ -80,10 +80,11 @@ export function openCategoryManager() {
       errorNode,
     ]);
 
+    // The toggle at the top drives both the add-form kind AND which list is
+    // shown: Pengeluaran → expense categories, Pemasukan → income categories.
     content.append(
       addForm,
-      kindGroup('expense', t.tx.expense),
-      kindGroup('income', t.tx.income)
+      kindGroup(addKind, addKind === 'income' ? t.tx.income : t.tx.expense)
     );
   }
 

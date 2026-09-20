@@ -902,10 +902,17 @@ textarea.invalid {
   border-color: color-mix(in srgb, var(--accent-nav) 45%, var(--border));
 }
 
+/* Non-dragged rows animate to their new slot (FLIP). */
+.wallet-item.settling {
+  transition: transform 0.18s ease;
+}
+
 .wallet-item.dragging {
-  opacity: 0.85;
+  opacity: 0.9;
   border-color: var(--accent-nav);
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5);
+  position: relative;
+  z-index: 5;
 }
 
 /* Row header: drag handle + the expand button. */

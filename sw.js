@@ -2,7 +2,7 @@
    Precaches the app shell so the app loads full-screen and offline from the
    home screen (Req 10.4). No build tooling / Workbox — plain SW API. */
 
-const CACHE = 'finance-tracker-v18';
+const CACHE = 'finance-tracker-v19';
 
 /** App shell: everything needed for a cold offline start. Relative paths so
     the SW works regardless of the base path it's served from. */
