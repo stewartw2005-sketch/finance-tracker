@@ -24,6 +24,10 @@ export const t = {
     back: 'Kembali',
     clear: 'Hapus filter',
     all: 'Semua',
+    // Confirmation toasts (shown on save/add)
+    saved: 'Tersimpan',
+    added: 'Ditambahkan',
+    deleted: 'Dihapus',
   },
 
   nav: {

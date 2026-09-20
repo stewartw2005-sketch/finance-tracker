@@ -179,6 +179,7 @@ export async function addTransaction(data) {
   notify();
   try {
     await db.addTransaction(txn);
+    showNotice(t.app.added);
   } catch {
     setError(t.errors.txSaveFailed);
   }
@@ -208,6 +209,7 @@ export async function editTransaction(id, data) {
   notify();
   try {
     await db.updateTransaction(updated);
+    showNotice(t.app.saved);
   } catch {
     setError(t.errors.txUpdateFailed);
   }
@@ -240,6 +242,7 @@ export async function addCategory(name, kind = 'expense') {
   notify();
   try {
     await db.addCategory(cat);
+    showNotice(t.app.added);
   } catch {
     setError(t.errors.categorySaveFailed);
   }
@@ -294,6 +297,7 @@ export async function addWallet(data) {
   notify();
   try {
     await db.addWallet(wallet);
+    showNotice(t.app.added);
   } catch {
     setError(t.errors.walletSaveFailed);
   }
@@ -321,6 +325,7 @@ export async function editWallet(id, data) {
   notify();
   try {
     await db.updateWallet(updated);
+    showNotice(t.app.saved);
   } catch {
     setError(t.errors.walletUpdateFailed);
   }
@@ -526,6 +531,7 @@ export async function addAsset(data) {
   notify();
   try {
     await db.addAsset(asset);
+    showNotice(t.app.added);
   } catch {
     setError(t.errors.assetSaveFailed);
   }
@@ -552,6 +558,7 @@ export async function editAsset(id, data) {
   notify();
   try {
     await db.updateAsset(updated);
+    showNotice(t.app.saved);
   } catch {
     setError(t.errors.assetUpdateFailed);
   }
@@ -590,6 +597,7 @@ export async function addDebt(data) {
   notify();
   try {
     await db.addDebt(debt);
+    showNotice(t.app.added);
   } catch {
     setError(t.errors.debtSaveFailed);
   }
@@ -617,6 +625,7 @@ export async function editDebt(id, data) {
   notify();
   try {
     await db.updateDebt(updated);
+    showNotice(t.app.saved);
   } catch {
     setError(t.errors.debtUpdateFailed);
   }
@@ -655,6 +664,7 @@ export async function addInvestment(data) {
   notify();
   try {
     await db.addInvestment(inv);
+    showNotice(t.app.added);
   } catch {
     setError(t.errors.investSaveFailed);
   }
@@ -682,6 +692,7 @@ export async function editInvestment(id, data) {
   notify();
   try {
     await db.updateInvestment(updated);
+    showNotice(t.app.saved);
   } catch {
     setError(t.errors.investUpdateFailed);
   }

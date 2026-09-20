@@ -166,24 +166,54 @@ function setupWalletDrag(listEl) {
   listEl.addEventListener('pointermove', (e) => {
     if (!dragItem) return;
     if (Math.abs(e.clientY - startY) > 3) moved = true;
-    // Find the sibling we're hovering over and reorder in the DOM.
-    const siblings = Array.from(listEl.querySelectorAll('.wallet-item')).filter((n) => n !== dragItem);
-    let placed = false;
-    for (const sib of siblings) {
+
+    const others = Array.from(listEl.querySelectorAll('.wallet-item')).filter((n) => n !== dragItem);
+
+    // Decide the target position under the pointer.
+    let target = null;
+    for (const sib of others) {
       const rect = sib.getBoundingClientRect();
       if (e.clientY < rect.top + rect.height / 2) {
-        if (sib !== dragItem.nextSibling) listEl.insertBefore(dragItem, sib);
-        placed = true;
+        target = sib;
         break;
       }
     }
-    if (!placed) listEl.appendChild(dragItem);
+    const willMove = target
+      ? dragItem.nextSibling !== target
+      : listEl.lastElementChild !== dragItem;
+    if (!willMove) return;
+
+    // FLIP: record positions, move, then animate siblings from old->new.
+    const first = new Map();
+    for (const n of others) first.set(n, n.getBoundingClientRect().top);
+
+    if (target) listEl.insertBefore(dragItem, target);
+    else listEl.appendChild(dragItem);
+
+    for (const n of others) {
+      const prev = first.get(n);
+      const now = n.getBoundingClientRect().top;
+      const delta = prev - now;
+      if (!delta) continue;
+      n.classList.remove('settling');
+      n.style.transform = `translateY(${delta}px)`;
+      // Next frame: transition back to natural position.
+      requestAnimationFrame(() => {
+        n.classList.add('settling');
+        n.style.transform = '';
+      });
+    }
   });
 
   function endDrag(e) {
     if (!dragItem) return;
     dragItem.classList.remove('dragging');
     dragItem = null;
+    // Clear any lingering FLIP transition state.
+    for (const n of listEl.querySelectorAll('.wallet-item')) {
+      n.classList.remove('settling');
+      n.style.transform = '';
+    }
     if (moved) {
       const ids = Array.from(listEl.querySelectorAll('.wallet-item')).map(
         (n) => /** @type {HTMLElement} */ (n).dataset.id

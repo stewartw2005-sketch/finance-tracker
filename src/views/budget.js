@@ -26,8 +26,8 @@ export function renderBudget(container) {
   // (During slider drags only the sliders subtree re-renders, so the draft
   // persists within an editing session.)
   sliderDraft = { ...budget.groups };
-  // Spending categories exclude the special "income" default.
-  const spendingCats = store.getState().categories.filter((c) => c.id !== 'income');
+  // Budgeting is for spending only — show expense categories, never income.
+  const spendingCats = store.categoriesByKind('expense');
 
   container.append(
     incomeCard(budget),
