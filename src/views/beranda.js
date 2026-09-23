@@ -204,11 +204,6 @@ function calendarCard(month, hidden) {
   const [y, m] = month.split('-').map(Number);
   const daysInMonth = new Date(y, m, 0).getDate();
   const firstDow = new Date(y, m - 1, 1).getDay(); // 0=Sun
-  const netByDay = store.dailyNetSpend(month);
-
-  // Max positive net spend for intensity scaling.
-  let maxSpend = 0;
-  for (const v of netByDay.values()) if (v > maxSpend) maxSpend = v;
 
   const cells = [];
   // Weekday headers (Min–Sab).
@@ -216,12 +211,22 @@ function calendarCard(month, hidden) {
   for (const d of dow) cells.push(el('div', { class: 'cal-dow' }, d));
   // Leading blanks.
   for (let i = 0; i < firstDow; i++) cells.push(el('div', { class: 'cal-cell empty' }));
-  // Day cells: day number (small, top) + compact spend amount (below).
+  // Day cells: show expense total per day (not net — income doesn't reduce
+  // the amount shown on a "pengeluaran" calendar, so today always shows).
+  // Compute per-day expense totals inline for accuracy.
+  /** @type {Map<number, number>} */
+  const dayExpenseMap = new Map();
+  for (const tx of store.selectTransactionsForMonth(month)) {
+    if (tx.type !== 'expense') continue;
+    const d = parseInt(tx.date.slice(8, 10), 10);
+    if (d) dayExpenseMap.set(d, (dayExpenseMap.get(d) || 0) + tx.amount);
+  }
+  let maxExpense = 0;
+  for (const v of dayExpenseMap.values()) if (v > maxExpense) maxExpense = v;
+
   for (let day = 1; day <= daysInMonth; day++) {
-    const net = netByDay.get(day) || 0;
-    const spend = net > 0 ? net : 0;
-    const intensity = maxSpend > 0 && spend > 0 ? Math.min(1, spend / maxSpend) : 0;
-    // Subtle expense tint scaled by intensity (lighter than before, per ref).
+    const expense = dayExpenseMap.get(day) || 0;
+    const intensity = maxExpense > 0 && expense > 0 ? Math.min(1, expense / maxExpense) : 0;
     const bg = intensity > 0
       ? `color-mix(in srgb, var(--expense) ${Math.round(8 + intensity * 34)}%, var(--surface-2))`
       : 'var(--surface-2)';
@@ -232,12 +237,12 @@ function calendarCard(month, hidden) {
         {
           class: 'cal-cell' + (today ? ' today' : ''),
           style: `background:${bg}`,
-          title: spend > 0 && !hidden ? `${day}: ${money(spend)}` : String(day),
+          title: expense > 0 && !hidden ? `${day}: ${money(expense)}` : String(day),
         },
         [
           el('span', { class: 'cal-day' }, String(day)),
-          spend > 0
-            ? el('span', { class: 'cal-amt' }, hidden ? '•••' : '-' + moneyShort(roundForCell(spend)))
+          expense > 0
+            ? el('span', { class: 'cal-amt' }, hidden ? '•••' : '-' + moneyShort(roundForCell(expense)))
             : null,
         ]
       )

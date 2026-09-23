@@ -264,6 +264,8 @@ export async function addCategory(name, kind = 'expense') {
 export async function removeCategory(id) {
   const cat = state.categories.find((c) => c.id === id);
   if (!cat) return;
+  // If this is a default category, mark it so the migration doesn't re-add it.
+  if (cat.isDefault) db.markDefaultDeleted(id);
   state.categories = state.categories.filter((c) => c.id !== id);
   notify();
   try {

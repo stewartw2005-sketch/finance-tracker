@@ -35,6 +35,38 @@ export const DEFAULT_BUDGET = /** @type {import('../types.js').BudgetSettings} *
   groupCategoryAmounts: {},
 });
 
+const DELETED_DEFAULTS_LS_KEY = 'deletedDefaultCategories';
+
+/**
+ * IDs of default categories the user explicitly deleted, so the migration
+ * doesn't re-add them. Stored in localStorage (lightweight; not in IndexedDB
+ * since the migration runs before IDB data is available for this check).
+ * @returns {Set<string>}
+ */
+function getDeletedDefaults() {
+  try {
+    if (typeof localStorage === 'undefined') return new Set();
+    const raw = localStorage.getItem(DELETED_DEFAULTS_LS_KEY);
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+/**
+ * Mark a default category as user-deleted so the migration won't re-add it.
+ * @param {string} id
+ */
+export function markDefaultDeleted(id) {
+  try {
+    const set = getDeletedDefaults();
+    set.add(id);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(DELETED_DEFAULTS_LS_KEY, JSON.stringify([...set]));
+    }
+  } catch { /* ignore */ }
+}
+
 /** Default categories seeded on first run (Req 5.1). Stable slug ids. */
 export const DEFAULT_CATEGORIES = /** @type {Category[]} */ ([
   // Expense categories
@@ -216,10 +248,12 @@ export async function seedDefaultCategoriesIfEmpty() {
       }
     }
 
-    // Migration: add newly-introduced default income categories if missing.
+    // Migration: add newly-introduced default income categories if missing,
+    // but skip any that the user explicitly deleted.
     const haveIds = new Set(existing.map((c) => c.id));
+    const deletedDefaults = getDeletedDefaults();
     for (const c of DEFAULT_CATEGORIES) {
-      if (!haveIds.has(c.id)) {
+      if (!haveIds.has(c.id) && !deletedDefaults.has(c.id)) {
         await addCategory(c);
         existing.push(c);
       }

@@ -5,7 +5,7 @@
  * including defaults — with an in-use confirmation.
  */
 import { el } from '../lib/dom.js';
-import { openModal, confirmDialog } from './modal.js';
+import { openModal } from './modal.js';
 import * as store from '../state/store.js';
 import { categoryNameExists } from '../lib/validation.js';
 import { t } from '../lib/i18n.js';
@@ -206,20 +206,43 @@ export function openCategoryManager() {
 }
 
 /**
+ * Inline delete confirmation — replaces the category list with a confirm
+ * prompt, then restores via rebuild. This avoids opening a second modal
+ * (which would close the category manager).
  * @param {import('../types.js').Category} c
  * @param {() => void} rebuild
  */
 function deleteCategory(c, rebuild) {
   const inUse = store.countTransactionsForCategory(c.id);
-  const doDelete = () => store.removeCategory(c.id).then(rebuild);
   const displayName = store.categoryName(c.id);
-  confirmDialog({
-    title: t.category.deleteTitle,
-    message:
-      inUse > 0
-        ? t.category.deleteMsgInUse(displayName, inUse)
-        : t.category.deleteMsgSimple(displayName),
-    confirmLabel: t.app.delete,
-    onConfirm: doDelete,
-  });
+  const message =
+    inUse > 0
+      ? t.category.deleteMsgInUse(displayName, inUse)
+      : t.category.deleteMsgSimple(displayName);
+
+  // Show an inline confirm within the modal content.
+  const confirmBlock = el('div', { class: 'inline-confirm card' }, [
+    el('div', { style: 'font-weight:600;margin-bottom:8px' }, t.category.deleteTitle),
+    el('div', { style: 'color:var(--text-muted);margin-bottom:14px' }, message),
+    el('div', { class: 'btn-row' }, [
+      el('button', { class: 'btn ghost', onClick: () => rebuild() }, t.app.cancel),
+      el(
+        'button',
+        {
+          class: 'btn danger',
+          onClick: () => store.removeCategory(c.id).then(() => rebuild()),
+        },
+        t.app.delete
+      ),
+    ]),
+  ]);
+
+  // Replace content with the confirm; rebuild restores the normal view.
+  const parent = document.querySelector('.modal .stack');
+  if (parent) {
+    parent.textContent = '';
+    parent.appendChild(confirmBlock);
+  } else {
+    rebuild();
+  }
 }

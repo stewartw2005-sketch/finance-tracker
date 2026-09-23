@@ -1853,3 +1853,11 @@ textarea.invalid {
 .cat-group .cat-item {
   background: var(--surface);
 }
+
+
+/* ---- Inline confirm (within a modal) ----------------------- */
+
+.inline-confirm {
+  padding: 20px;
+  margin: 10px 0;
+}
