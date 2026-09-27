@@ -304,6 +304,7 @@ export const t = {
     type: 'Jenis',
     expense: 'Pengeluaran',
     income: 'Pemasukan',
+    scan: 'Scan Struk',
     amount: 'Jumlah',
     amountPlaceholder: '0',
     category: 'Kategori',
@@ -343,6 +344,17 @@ export const t = {
     resetFilters: 'Atur ulang',
     activeFilters: (n) => `${n} filter aktif`,
     resultCount: (n) => `${n} transaksi`,
+    // scan struk
+    scanPick: 'Pilih gambar struk',
+    scanPickHint: 'Ambil dari galeri atau screenshot pembayaran.',
+    scanReading: 'Membaca struk…',
+    scanReadOk: 'Data terisi otomatis. Periksa lalu simpan.',
+    scanReadPartial: 'Sebagian terisi. Lengkapi lalu simpan.',
+    scanReadNone: 'Teks tidak terbaca otomatis. Isi manual dari gambar.',
+    scanNoOcr: 'Perangkat ini tidak bisa membaca teks otomatis. Isi manual dari gambar.',
+    scanChangeImage: 'Ganti gambar',
+    scanMerchantToNote: 'Nama merchant otomatis dimasukkan ke catatan.',
+    scanImageAlt: 'Pratinjau struk',
   },
 
   validation: {
