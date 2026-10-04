@@ -21,7 +21,9 @@ import { monthSelect } from './monthSelect.js';
  */
 export function renderBeranda(container, navigate) {
   const month = store.getState().selectedMonth;
-  const summary = store.selectMonthlySummary(month);
+  // Beranda excludes money-move ("Pindah") categories so moving money between
+  // your own places doesn't show up as income/expense here.
+  const summary = store.berandaMonthlySummary(month);
   // Independent per-section privacy locks.
   const sekilasHidden = store.isHidden('sekilas');
   const ringkasanHidden = store.isHidden('ringkasan');
@@ -74,12 +76,12 @@ function greetingHeader() {
  * @returns {HTMLElement}
  */
 function glanceCard(summary, hidden) {
-  const dailyRemaining = store.dailyBudgetRemaining ? store.dailyBudgetRemaining() : null;
+  const dailyRemaining = store.berandaDailyBudgetRemaining ? store.berandaDailyBudgetRemaining() : null;
   const hasBudget = dailyRemaining != null && Number.isFinite(dailyRemaining);
 
   // Progress: today's expenses relative to the daily allowance (0–100%).
   const allowance = store.dailyAllowance ? store.dailyAllowance() : null;
-  const todaySpent = store.todayExpenses();
+  const todaySpent = store.berandaTodayExpenses();
   const ratio =
     allowance && allowance > 0
       ? Math.min(1, todaySpent / allowance)
@@ -114,11 +116,11 @@ function glanceCard(summary, hidden) {
     el('div', { class: 'glance-io' }, [
       el('div', { class: 'glance-io-col' }, [
         el('div', { class: 'glance-io-label' }, t.beranda.pemasukan),
-        el('div', { class: 'glance-io-val income' }, hidden ? t.wallet.hidden : money(store.todayIncome())),
+        el('div', { class: 'glance-io-val income' }, hidden ? t.wallet.hidden : money(store.berandaTodayIncome())),
       ]),
       el('div', { class: 'glance-io-col' }, [
         el('div', { class: 'glance-io-label' }, t.beranda.pengeluaran),
-        el('div', { class: 'glance-io-val expense' }, hidden ? t.wallet.hidden : money(store.todayExpenses())),
+        el('div', { class: 'glance-io-val expense' }, hidden ? t.wallet.hidden : money(store.berandaTodayExpenses())),
       ]),
     ]),
     el(
@@ -158,7 +160,7 @@ function summaryCard(label, value, valueClass) {
 
 /** Period comparison stats (income & expense vs last month). */
 function comparisonCard(month) {
-  const cmp = store.previousMonthComparison(month);
+  const cmp = store.berandaPreviousMonthComparison(month);
   const row = (label, pct, kind) => {
     let text = t.beranda.vsLastMonth;
     let cls = 'flat';
@@ -213,14 +215,9 @@ function calendarCard(month, hidden) {
   for (let i = 0; i < firstDow; i++) cells.push(el('div', { class: 'cal-cell empty' }));
   // Day cells: show expense total per day (not net — income doesn't reduce
   // the amount shown on a "pengeluaran" calendar, so today always shows).
-  // Compute per-day expense totals inline for accuracy.
-  /** @type {Map<number, number>} */
-  const dayExpenseMap = new Map();
-  for (const tx of store.selectTransactionsForMonth(month)) {
-    if (tx.type !== 'expense') continue;
-    const d = parseInt(tx.date.slice(8, 10), 10);
-    if (d) dayExpenseMap.set(d, (dayExpenseMap.get(d) || 0) + tx.amount);
-  }
+  // Money-move ("Pindah") categories are excluded so moving money doesn't
+  // paint the calendar.
+  const dayExpenseMap = store.berandaDailyExpenseMap(month);
   let maxExpense = 0;
   for (const v of dayExpenseMap.values()) if (v > maxExpense) maxExpense = v;
 
@@ -285,7 +282,7 @@ function recentCard(navigate) {
 
 /** Top expenses tagged by budget group (Req 22.8). */
 function topExpensesCard(month, hidden) {
-  const top = store.topExpenses(month, 5);
+  const top = store.berandaTopExpenses(month, 5);
   if (top.length === 0) {
     return el('div', {}, [
       el('div', { class: 'section-title' }, t.beranda.topExpensesTitle),

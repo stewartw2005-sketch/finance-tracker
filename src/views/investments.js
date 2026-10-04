@@ -85,7 +85,89 @@ function investRow(v, hidden) {
     el('div', { class: 'invest-gain ' + gainClass },
       hidden ? t.wallet.hidden : `${signedMoney(gain)} · ${signedPct(gainPct)}`
     ),
+    el('div', { style: 'margin-top:10px' },
+      el('button', { class: 'btn ghost full', onClick: () => openAddFundsForm(v) }, '+ ' + t.investasi.addFunds)
+    ),
   ]);
+}
+
+/**
+ * "Tambah Dana" modal — add more money to an existing holding, optionally
+ * deducting from a chosen dompet.
+ * @param {Investment} v
+ */
+function openAddFundsForm(v) {
+  const wallets = store.getState().wallets;
+  const form = { amount: '', sourceWalletId: '' };
+  /** @type {Record<string,string>} */
+  let errors = {};
+  const content = el('form', { class: 'stack', novalidate: 'true' });
+
+  function rebuild() {
+    content.textContent = '';
+    const amountInput = el('input', {
+      type: 'text',
+      inputmode: 'numeric',
+      value: form.amount,
+      placeholder: t.tx.amountPlaceholder,
+      class: errors.amount ? 'invalid' : '',
+      onInput: (e) => {
+        e.target.value = groupDigits(e.target.value);
+        form.amount = e.target.value;
+      },
+    });
+
+    content.append(
+      el('label', { class: 'field' }, [
+        el('span', { class: 'field-label' }, t.investasi.addFundsAmount),
+        amountInput,
+        el('span', { class: 'field-error', role: errors.amount ? 'alert' : undefined }, errors.amount || ''),
+      ])
+    );
+
+    if (wallets.length > 0) {
+      const walletSelect = el(
+        'select',
+        { onChange: (e) => (form.sourceWalletId = e.target.value) },
+        [
+          el('option', { value: '', selected: form.sourceWalletId === '' }, t.investasi.sourceWalletNone),
+          ...wallets.map((w) =>
+            el('option', { value: w.id, selected: w.id === form.sourceWalletId }, w.name)
+          ),
+        ]
+      );
+      content.append(
+        el('label', { class: 'field' }, [
+          el('span', { class: 'field-label' }, t.investasi.sourceWallet),
+          walletSelect,
+          el('span', { class: 'field-hint' }, t.investasi.sourceWalletHint),
+        ])
+      );
+    }
+
+    content.append(
+      el('div', { class: 'btn-row' }, [
+        el('button', { type: 'button', class: 'btn ghost', onClick: () => closeModal() }, t.app.cancel),
+        el('button', { type: 'submit', class: 'btn primary' }, t.investasi.addFundsSubmit),
+      ])
+    );
+  }
+
+  content.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errors = {};
+    const amount = parseAmount(form.amount);
+    if (Number.isNaN(amount) || amount <= 0) errors.amount = t.investasi.addFundsAmountInvalid;
+    if (Object.keys(errors).length > 0) {
+      rebuild();
+      return;
+    }
+    await store.addFundsToInvestment(v.id, amount, form.sourceWalletId || undefined);
+    closeModal();
+  });
+
+  rebuild();
+  openModal(t.investasi.addFundsTitle(v.name), content);
 }
 
 /** Format a signed Rupiah value, e.g. +Rp100.000 / -Rp50.000. */
@@ -108,11 +190,15 @@ function signedPct(p) {
  */
 function openInvestForm(existing) {
   const isEdit = !!existing;
+  const wallets = store.getState().wallets;
+  const primary = store.primaryWallet();
   const form = {
     name: existing ? existing.name : '',
     invType: /** @type {InvestmentType} */ (existing ? existing.invType : 'saham'),
     invested: existing ? groupDigits(String(existing.invested)) : '',
     currentValue: existing ? groupDigits(String(existing.currentValue)) : '',
+    // Source wallet only applies when adding a new holding (money goes out now).
+    sourceWalletId: '',
   };
   /** @type {Record<string,string>} */
   let errors = {};
@@ -148,11 +234,37 @@ function openInvestForm(existing) {
         el('option', { value: ty, selected: ty === form.invType }, t.investasi.types[ty])
       )
     );
+
     content.append(
       field(t.investasi.name, nameInput, errors.name),
       field(t.investasi.type, typeSelect),
       field(t.investasi.invested, amountInput('invested', 'invested'), errors.invested),
-      field(t.investasi.currentValue, amountInput('currentValue', 'currentValue'), errors.currentValue),
+      fieldWithHint(
+        t.investasi.currentValue,
+        amountInput('currentValue', 'currentValue'),
+        t.investasi.currentValueHint,
+        errors.currentValue
+      )
+    );
+
+    // Source wallet picker — only when adding (deducts the modal from a dompet).
+    if (!isEdit && wallets.length > 0) {
+      const walletSelect = el(
+        'select',
+        { onChange: (e) => (form.sourceWalletId = e.target.value) },
+        [
+          el('option', { value: '', selected: form.sourceWalletId === '' }, t.investasi.sourceWalletNone),
+          ...wallets.map((w) =>
+            el('option', { value: w.id, selected: w.id === form.sourceWalletId }, w.name)
+          ),
+        ]
+      );
+      content.append(
+        fieldWithHint(t.investasi.sourceWallet, walletSelect, t.investasi.sourceWalletHint)
+      );
+    }
+
+    content.append(
       el('div', { class: 'btn-row' }, [
         el('button', { type: 'button', class: 'btn ghost', onClick: () => closeModal() }, t.app.cancel),
         el('button', { type: 'submit', class: 'btn primary' }, isEdit ? t.app.save : t.app.add),
@@ -168,22 +280,49 @@ function openInvestForm(existing) {
     ]);
   }
 
+  function fieldWithHint(labelText, control, hint, error) {
+    return el('label', { class: 'field' }, [
+      el('span', { class: 'field-label' }, labelText),
+      control,
+      hint ? el('span', { class: 'field-hint' }, hint) : null,
+      el('span', { class: 'field-error', role: error ? 'alert' : undefined }, error || ''),
+    ]);
+  }
+
   content.addEventListener('submit', async (e) => {
     e.preventDefault();
     errors = {};
     const name = form.name.trim();
     const invested = parseAmount(form.invested);
-    const currentValue = parseAmount(form.currentValue);
+    // Nilai sekarang is optional: blank → defaults to the invested amount.
+    const currentRaw = form.currentValue.trim();
+    const currentValue = currentRaw === '' ? undefined : parseAmount(form.currentValue);
     if (!name) errors.name = t.investasi.nameRequired;
     if (Number.isNaN(invested) || invested < 0) errors.invested = t.investasi.investedInvalid;
-    if (Number.isNaN(currentValue) || currentValue < 0) errors.currentValue = t.investasi.currentInvalid;
+    if (currentValue !== undefined && (Number.isNaN(currentValue) || currentValue < 0)) {
+      errors.currentValue = t.investasi.currentInvalid;
+    }
     if (Object.keys(errors).length > 0) {
       rebuild();
       return;
     }
-    const payload = { name, invType: form.invType, invested, currentValue };
-    if (isEdit && existing) await store.editInvestment(existing.id, payload);
-    else await store.addInvestment(payload);
+    if (isEdit && existing) {
+      // Edit keeps the explicit current value (fall back to invested if blank).
+      await store.editInvestment(existing.id, {
+        name,
+        invType: form.invType,
+        invested,
+        currentValue: currentValue === undefined ? invested : currentValue,
+      });
+    } else {
+      await store.addInvestment({
+        name,
+        invType: form.invType,
+        invested,
+        currentValue,
+        sourceWalletId: form.sourceWalletId || undefined,
+      });
+    }
     closeModal();
   });
 
