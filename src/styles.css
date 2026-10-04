@@ -632,6 +632,19 @@ textarea.invalid {
   padding: 2px 6px;
 }
 
+/* "Luar Beranda" badge + excluded-row styling for Kelola Kategori. */
+.badge.excluded-badge {
+  color: var(--accent-nav);
+  border-color: color-mix(in srgb, var(--accent-nav) 45%, var(--border));
+}
+.cat-item.excluded .cat-name {
+  color: var(--text-muted);
+}
+/* The eye toggle lights up when the category is excluded (eye-off shown). */
+.icon-btn.active {
+  color: var(--accent-nav);
+}
+
 /* ---- Modal ------------------------------------------------- */
 
 .modal-backdrop {

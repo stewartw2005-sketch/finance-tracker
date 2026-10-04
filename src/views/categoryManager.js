@@ -84,7 +84,8 @@ export function openCategoryManager() {
     // shown: Pengeluaran → expense categories, Pemasukan → income categories.
     content.append(
       addForm,
-      kindGroup(addKind, addKind === 'income' ? t.tx.income : t.tx.expense)
+      kindGroup(addKind, addKind === 'income' ? t.tx.income : t.tx.expense),
+      el('div', { class: 'field-hint', style: 'margin-top:4px' }, t.category.excludeHint)
     );
   }
 
@@ -99,7 +100,8 @@ export function openCategoryManager() {
         { class: 'cat-list' },
         cats.map((c) => {
           const displayName = store.categoryName(c.id);
-          return el('li', { class: 'cat-item', dataset: { id: c.id } }, [
+          const excluded = !!c.excludeFromBeranda;
+          return el('li', { class: 'cat-item' + (excluded ? ' excluded' : ''), dataset: { id: c.id } }, [
             el(
               'span',
               { class: 'cat-drag', 'aria-label': t.category.dragHandle, role: 'button' },
@@ -107,6 +109,21 @@ export function openCategoryManager() {
             ),
             el('span', { class: 'cat-name' }, displayName),
             c.isDefault ? el('span', { class: 'badge' }, t.category.defaultBadge) : null,
+            excluded ? el('span', { class: 'badge excluded-badge' }, t.category.excludedBadge) : null,
+            el(
+              'button',
+              {
+                class: 'icon-btn' + (excluded ? ' active' : ''),
+                title: t.category.excludeFromBeranda,
+                'aria-pressed': excluded ? 'true' : 'false',
+                'aria-label': excluded
+                  ? t.category.excludeAriaOn(displayName)
+                  : t.category.excludeAriaOff(displayName),
+                onClick: () =>
+                  store.setCategoryExcludeFromBeranda(c.id, !excluded).then(() => rebuild()),
+              },
+              icon(excluded ? 'eyeOff' : 'eye', { size: 18 })
+            ),
             el(
               'button',
               {
