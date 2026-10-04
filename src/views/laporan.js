@@ -18,10 +18,12 @@ import { spendingChart } from './chart.js';
  */
 export function renderLaporan(container) {
   const month = store.getState().selectedMonth;
-  const report = store.monthlyReport(month);
-  const cmp = store.previousMonthComparison(month);
-  const spending = store.selectSpendingByCategory(month);
-  const top = store.topExpenses(month, 5);
+  // Laporan excludes categories flagged "excluded" (money-move / "Pindah"),
+  // matching Beranda, so moving money doesn't skew the report or chart.
+  const report = store.monthlyReportExcluded(month);
+  const cmp = store.berandaPreviousMonthComparison(month);
+  const spending = store.selectSpendingByCategoryExcluded(month);
+  const top = store.berandaTopExpenses(month, 5);
 
   // Month selector
   const monthRow = el('label', { class: 'field', style: 'margin-bottom:16px' }, [
