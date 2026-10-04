@@ -1199,6 +1199,48 @@ export function selectSpendingByCategory(month = state.selectedMonth) {
 }
 
 /**
+ * Like selectSpendingByCategory, but EXCLUDES categories flagged as excluded
+ * (money-move / "Pindah"). Used by Laporan's chart so excluded categories
+ * don't dominate the spending breakdown. The base selector is left unchanged
+ * for any screen that wants the full picture.
+ * @param {string} [month]
+ * @returns {CategorySpend[]}
+ */
+export function selectSpendingByCategoryExcluded(month = state.selectedMonth) {
+  const list = selectTransactionsForMonth(month).filter(
+    (tx) => tx.type === 'expense' && !isMoveCategory(tx.categoryId)
+  );
+  /** @type {Map<string, number>} */
+  const totals = new Map();
+  for (const tx of list) {
+    totals.set(tx.categoryId, (totals.get(tx.categoryId) || 0) + tx.amount);
+  }
+  /** @type {CategorySpend[]} */
+  const result = [];
+  for (const [categoryId, total] of totals) {
+    if (total <= 0) continue;
+    result.push({ categoryId, categoryName: categoryName(categoryId), total });
+  }
+  return result.sort((a, b) => b.total - a.total);
+}
+
+/**
+ * Monthly report that EXCLUDES excluded categories, for Laporan. Mirrors
+ * monthlyReport's shape ({month, income, expenses, netSavings}).
+ * @param {string} [month]
+ * @returns {{ month:string, income:number, expenses:number, netSavings:number }}
+ */
+export function monthlyReportExcluded(month = state.selectedMonth) {
+  const s = berandaMonthlySummary(month);
+  return {
+    month,
+    income: s.totalIncome,
+    expenses: s.totalExpenses,
+    netSavings: s.totalIncome - s.totalExpenses,
+  };
+}
+
+/**
  * Resolve a category id to its display name (falls back gracefully).
  * @param {string} id
  * @returns {string}
