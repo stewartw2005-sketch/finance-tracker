@@ -681,18 +681,27 @@ export async function removeDebt(id) {
 // ---- Investment mutations (Req 19) ----------------------------------------
 
 /**
- * Add an investment holding.
- * @param {{name:string, invType:import('../types.js').InvestmentType, invested:number, currentValue:number}} data
+ * Add an investment holding. `currentValue` is optional and defaults to the
+ * invested amount (a fresh holding is worth what you put in). Optionally pass
+ * `sourceWalletId` to deduct the invested amount from that wallet — this
+ * records a "Pindah -" expense transaction so the wallet saldo drops while the
+ * movement is excluded from Beranda tracking.
+ * @param {{name:string, invType:import('../types.js').InvestmentType, invested:number, currentValue?:number, sourceWalletId?:string}} data
  * @returns {Promise<import('../types.js').Investment>}
  */
 export async function addInvestment(data) {
+  const invested = Math.max(0, Math.round(data.invested) || 0);
+  const currentValue =
+    data.currentValue == null || Number.isNaN(data.currentValue)
+      ? invested
+      : Math.max(0, Math.round(data.currentValue) || 0);
   /** @type {import('../types.js').Investment} */
   const inv = {
     id: makeId(),
     name: data.name.trim(),
     invType: data.invType,
-    invested: Math.max(0, Math.round(data.invested) || 0),
-    currentValue: Math.max(0, Math.round(data.currentValue) || 0),
+    invested,
+    currentValue,
     createdAt: Date.now(),
   };
   state.investments.push(inv);
@@ -703,7 +712,62 @@ export async function addInvestment(data) {
   } catch {
     setError(t.errors.investSaveFailed);
   }
+  // Deduct from the chosen wallet (if any and amount > 0) via a move-out tx.
+  if (data.sourceWalletId && invested > 0) {
+    await deductForInvestment(data.sourceWalletId, invested, inv.name);
+  }
   return inv;
+}
+
+/**
+ * Record a wallet deduction for an investment as a "Pindah -" expense
+ * transaction on the given wallet. The move category keeps it out of Beranda
+ * while still lowering the wallet saldo (money really moved out).
+ * @param {string} walletId @param {number} amount @param {string} invName
+ * @returns {Promise<void>}
+ */
+async function deductForInvestment(walletId, amount, invName) {
+  const categoryId = await ensureMoveOutCategory();
+  await addTransaction({
+    amount: Math.max(0, Math.round(amount) || 0),
+    type: 'expense',
+    categoryId,
+    date: todayISO(),
+    note: `${t.investasi.moveNote} ${invName}`.trim(),
+    walletId,
+  });
+}
+
+/**
+ * Add more money ("top up") to an existing investment: increases its invested
+ * amount (and current value by the same amount) and, if a source wallet is
+ * given, deducts that amount from the wallet via a "Pindah -" transaction.
+ * @param {string} id @param {number} amount @param {string} [sourceWalletId]
+ * @returns {Promise<void>}
+ */
+export async function addFundsToInvestment(id, amount, sourceWalletId) {
+  const idx = state.investments.findIndex((v) => v.id === id);
+  if (idx === -1) return;
+  const add = Math.max(0, Math.round(amount) || 0);
+  if (add <= 0) return;
+  const existing = state.investments[idx];
+  /** @type {import('../types.js').Investment} */
+  const updated = {
+    ...existing,
+    invested: Math.max(0, (existing.invested || 0) + add),
+    currentValue: Math.max(0, (existing.currentValue || 0) + add),
+  };
+  state.investments[idx] = updated;
+  notify();
+  try {
+    await db.updateInvestment(updated);
+    showNotice(t.app.saved);
+  } catch {
+    setError(t.errors.investUpdateFailed);
+  }
+  if (sourceWalletId) {
+    await deductForInvestment(sourceWalletId, add, updated.name);
+  }
 }
 
 /**
@@ -979,6 +1043,115 @@ export function selectMonthlySummary(month = state.selectedMonth) {
 }
 
 /**
+ * Beranda-only monthly summary that EXCLUDES money-move ("Pindah") categories.
+ * Mirrors selectMonthlySummary but skips transactions whose category is a move
+ * category, so the home screen reflects real income/expense only. Other
+ * screens (Transaksi, Laporan, Dashboard, Budget) keep using
+ * selectMonthlySummary and are unaffected.
+ * @param {string} [month]
+ * @returns {MonthlySummary}
+ */
+export function berandaMonthlySummary(month = state.selectedMonth) {
+  const list = selectTransactionsForMonth(month);
+  let totalIncome = 0;
+  let totalExpenses = 0;
+  for (const tx of list) {
+    if (isMoveCategory(tx.categoryId)) continue;
+    if (tx.type === 'income') totalIncome += tx.amount;
+    else totalExpenses += tx.amount;
+  }
+  return { month, totalIncome, totalExpenses, net: totalIncome - totalExpenses };
+}
+
+/**
+ * Today's expenses EXCLUDING money-move categories (Beranda "Sekilas").
+ * @returns {number}
+ */
+export function berandaTodayExpenses() {
+  const today = todayISO();
+  let sum = 0;
+  for (const tx of state.transactions) {
+    if (tx.type === 'expense' && tx.date === today && !isMoveCategory(tx.categoryId)) {
+      sum += tx.amount;
+    }
+  }
+  return sum;
+}
+
+/**
+ * Today's income EXCLUDING money-move categories (Beranda "Sekilas").
+ * @returns {number}
+ */
+export function berandaTodayIncome() {
+  const today = todayISO();
+  let sum = 0;
+  for (const tx of state.transactions) {
+    if (tx.type === 'income' && tx.date === today && !isMoveCategory(tx.categoryId)) {
+      sum += tx.amount;
+    }
+  }
+  return sum;
+}
+
+/**
+ * Beranda daily budget remaining = daily allowance − today's (non-move)
+ * expenses. Mirrors dailyBudgetRemaining but ignores money-move transactions
+ * so moving money doesn't eat into the daily budget. Null when no budget.
+ * @returns {number|null}
+ */
+export function berandaDailyBudgetRemaining() {
+  const allowance = dailyAllowance();
+  if (allowance == null) return null;
+  return allowance - berandaTodayExpenses();
+}
+
+/**
+ * Per-day expense totals for a month EXCLUDING money-move categories, for the
+ * Beranda calendar. Map of day-of-month (1-based) → expense total.
+ * @param {string} [month]
+ * @returns {Map<number, number>}
+ */
+export function berandaDailyExpenseMap(month = state.selectedMonth) {
+  /** @type {Map<number, number>} */
+  const map = new Map();
+  for (const tx of selectTransactionsForMonth(month)) {
+    if (tx.type !== 'expense') continue;
+    if (isMoveCategory(tx.categoryId)) continue;
+    const d = parseInt(tx.date.slice(8, 10), 10);
+    if (d) map.set(d, (map.get(d) || 0) + tx.amount);
+  }
+  return map;
+}
+
+/**
+ * Beranda comparison vs previous month, EXCLUDING money-move categories.
+ * @param {string} [month]
+ * @returns {{ incomePct:(number|null), expensePct:(number|null) }}
+ */
+export function berandaPreviousMonthComparison(month = state.selectedMonth) {
+  const cur = berandaMonthlySummary(month);
+  const prev = berandaMonthlySummary(prevMonth(month));
+  const pct = (curVal, prevVal) =>
+    prevVal > 0 ? ((curVal - prevVal) / prevVal) * 100 : null;
+  return {
+    incomePct: pct(cur.totalIncome, prev.totalIncome),
+    expensePct: pct(cur.totalExpenses, prev.totalExpenses),
+  };
+}
+
+/**
+ * Top (non-move) expense transactions for a month, largest first — Beranda.
+ * @param {string} [month] @param {number} [n=5]
+ * @returns {import('../types.js').Transaction[]}
+ */
+export function berandaTopExpenses(month = state.selectedMonth, n = 5) {
+  return selectTransactionsForMonth(month)
+    .filter((tx) => tx.type === 'expense' && !isMoveCategory(tx.categoryId))
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, n);
+}
+
+/**
  * Expense totals grouped by category for the month, omitting zero-total
  * categories, sorted descending by total (Req 7.2).
  * @param {string} [month]
@@ -1046,6 +1219,66 @@ export function categoriesByKind(kind) {
  */
 export function countTransactionsForCategory(categoryId) {
   return state.transactions.filter((t) => t.categoryId === categoryId).length;
+}
+
+// ---- "Pindah" (money-move) categories -------------------------------------
+// Transactions in these categories are just moving money between the user's
+// own places (e.g. wallet → investment), not real income/expense. They are
+// EXCLUDED from the Beranda summary, daily "Sekilas", and calendar — but still
+// appear in Transaksi and still affect wallet balances (money really moved).
+// Custom categories have random UUIDs, so we identify these by their canonical
+// names + kind.
+
+/** Canonical names of the money-move categories. */
+export const MOVE_OUT_NAME = 'Pindah -'; // expense side (money leaving a wallet)
+export const MOVE_IN_NAME = 'Pindah +'; // income side (money arriving in a wallet)
+
+/**
+ * Find a category by exact (trimmed) name and kind.
+ * @param {string} name @param {import('../types.js').TxType} kind
+ * @returns {import('../types.js').Category | undefined}
+ */
+export function categoryByNameKind(name, kind) {
+  const target = name.trim().toLowerCase();
+  return state.categories.find(
+    (c) => (c.name || '').trim().toLowerCase() === target && (c.kind || 'expense') === kind
+  );
+}
+
+/** @returns {string|undefined} id of the "Pindah -" expense category, if it exists. */
+export function moveOutCategoryId() {
+  const c = categoryByNameKind(MOVE_OUT_NAME, 'expense');
+  return c ? c.id : undefined;
+}
+
+/** @returns {string|undefined} id of the "Pindah +" income category, if it exists. */
+export function moveInCategoryId() {
+  const c = categoryByNameKind(MOVE_IN_NAME, 'income');
+  return c ? c.id : undefined;
+}
+
+/**
+ * Whether a transaction's category is a money-move ("Pindah") category and so
+ * should be excluded from Beranda tracking.
+ * @param {string} categoryId
+ * @returns {boolean}
+ */
+export function isMoveCategory(categoryId) {
+  if (!categoryId) return false;
+  return categoryId === moveOutCategoryId() || categoryId === moveInCategoryId();
+}
+
+/**
+ * Ensure the "Pindah -" (expense) category exists, creating it if needed, and
+ * return its id. Used when deducting a wallet for an investment so the
+ * deduction is excluded from Beranda but still reduces the wallet saldo.
+ * @returns {Promise<string>}
+ */
+export async function ensureMoveOutCategory() {
+  const existing = moveOutCategoryId();
+  if (existing) return existing;
+  const cat = await addCategory(MOVE_OUT_NAME, 'expense');
+  return cat.id;
 }
 
 /**
