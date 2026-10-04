@@ -48,6 +48,11 @@
  * @property {TxType} [kind]         - 'income' | 'expense' — which transaction type it applies to
  * @property {BudgetGroup} [budgetGroup] - budget group assignment (Kebutuhan/Keinginan/Tabungan)
  * @property {number} [order]        - manual sort position within its kind (ascending)
+ * @property {boolean} [excludeFromBeranda] - when true, transactions in this
+ *                                      category are excluded from Beranda
+ *                                      tracking (money-move categories). They
+ *                                      still show in Transaksi and still affect
+ *                                      wallet balances.
  */
 
 /**

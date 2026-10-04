@@ -519,6 +519,25 @@ export function setCategoryGroup(categoryId, group) {
 }
 
 /**
+ * Set whether a category is excluded from Beranda tracking (money-move
+ * categories like "Pindah -"/"Pindah +"). Excluded categories don't count in
+ * the Beranda summary, Sekilas, calendar, comparison, or top expenses, but
+ * still appear in Transaksi and still affect wallet balances.
+ * @param {string} categoryId @param {boolean} excluded
+ * @returns {Promise<void>}
+ */
+export function setCategoryExcludeFromBeranda(categoryId, excluded) {
+  const idx = state.categories.findIndex((c) => c.id === categoryId);
+  if (idx === -1) return Promise.resolve();
+  const updated = { ...state.categories[idx] };
+  if (excluded) updated.excludeFromBeranda = true;
+  else delete updated.excludeFromBeranda;
+  state.categories[idx] = updated;
+  notify();
+  return db.addCategory(updated).catch(() => setError(t.errors.categorySaveFailed));
+}
+
+/**
  * Set a fixed per-category budget amount (Req 16.8).
  * @param {string} categoryId @param {number} amount
  */
@@ -1258,13 +1277,17 @@ export function moveInCategoryId() {
 }
 
 /**
- * Whether a transaction's category is a money-move ("Pindah") category and so
- * should be excluded from Beranda tracking.
+ * Whether a transaction's category should be excluded from Beranda tracking.
+ * True when the category has the explicit `excludeFromBeranda` flag, OR (as a
+ * fallback for categories created before the flag existed) when it is one of
+ * the canonical "Pindah -"/"Pindah +" money-move categories by name.
  * @param {string} categoryId
  * @returns {boolean}
  */
 export function isMoveCategory(categoryId) {
   if (!categoryId) return false;
+  const c = state.categories.find((x) => x.id === categoryId);
+  if (c && c.excludeFromBeranda) return true;
   return categoryId === moveOutCategoryId() || categoryId === moveInCategoryId();
 }
 
@@ -1276,8 +1299,14 @@ export function isMoveCategory(categoryId) {
  */
 export async function ensureMoveOutCategory() {
   const existing = moveOutCategoryId();
-  if (existing) return existing;
+  if (existing) {
+    // Make sure it's flagged so it stays out of Beranda even if renamed later.
+    const c = state.categories.find((x) => x.id === existing);
+    if (c && !c.excludeFromBeranda) await setCategoryExcludeFromBeranda(existing, true);
+    return existing;
+  }
   const cat = await addCategory(MOVE_OUT_NAME, 'expense');
+  await setCategoryExcludeFromBeranda(cat.id, true);
   return cat.id;
 }
 
