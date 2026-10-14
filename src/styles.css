@@ -91,9 +91,11 @@ body {
 }
 
 .app-header h1 {
-  font-size: 1.15rem;
+  font-size: 1.3rem;
   margin: 0;
-  font-weight: 650;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.01em;
 }
 
 .main {
@@ -1419,7 +1421,14 @@ textarea.invalid {
 /* ---- Header back button (secondary views) ------------------ */
 
 .app-header.with-back {
-  gap: 8px;
+  gap: 10px;
+  justify-content: flex-start;
+}
+
+/* On secondary pages the title sits right after the back button (left-aligned)
+   so it reads clearly instead of being pushed to the far right. */
+.app-header.with-back h1 {
+  font-size: 1.25rem;
 }
 
 .back-btn {
@@ -1427,12 +1436,13 @@ textarea.invalid {
   align-items: center;
   gap: 4px;
   min-height: 38px;
-  padding: 0 12px 0 8px;
+  padding: 0 14px 0 10px;
   border: 1px solid var(--border);
-  background: var(--surface-2);
+  background: var(--surface-3);
   color: var(--text);
   border-radius: 999px;
-  font-size: 0.9rem;
+  font-size: 0.92rem;
+  font-weight: 550;
   cursor: pointer;
 }
 
