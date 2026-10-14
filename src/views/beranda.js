@@ -97,7 +97,6 @@ function glanceCard(summary, hidden) {
     : money(dailyRemaining);
 
   return el('div', { class: 'glance-card' }, [
-    el('div', { class: 'glance-label' }, [el('span', {}, t.beranda.sekilasHariIni)]),
     el('div', { class: 'glance-amount-row' }, [
       el(
         'span',

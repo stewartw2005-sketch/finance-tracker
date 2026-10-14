@@ -1,8 +1,24 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="112" fill="#000000"/>
-  <!-- Coin / balance mark -->
-  <circle cx="256" cy="256" r="150" fill="none" stroke="#34d399" stroke-width="28"/>
-  <path d="M256 168 v176" stroke="#f4f4f5" stroke-width="26" stroke-linecap="round"/>
-  <path d="M300 208 c0 -26 -22 -40 -48 -40 c-26 0 -46 14 -46 36 c0 52 96 30 96 84 c0 24 -22 40 -50 40 c-28 0 -50 -16 -50 -42"
-        fill="none" stroke="#f4f4f5" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+  <defs>
+    <linearGradient id="lime" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#34d399"/>
+      <stop offset="1" stop-color="#c6f24e"/>
+    </linearGradient>
+  </defs>
+  <!-- Rounded dark tile -->
+  <rect width="512" height="512" rx="118" fill="#0d0d0f"/>
+  <rect x="6" y="6" width="500" height="500" rx="114" fill="none" stroke="#1e1e24" stroke-width="4"/>
+
+  <!-- Growth bars (budget climbing) -->
+  <g fill="url(#lime)">
+    <rect x="120" y="300" width="54" height="92" rx="18"/>
+    <rect x="229" y="252" width="54" height="140" rx="18"/>
+    <rect x="338" y="300" width="54" height="92" rx="18"/>
+  </g>
+
+  <!-- Upward trend arrow -->
+  <g fill="none" stroke="url(#lime)" stroke-width="30" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M138 236 L229 170 L300 212 L392 128"/>
+  </g>
+  <path d="M330 120 h74 v74" fill="none" stroke="url(#lime)" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
