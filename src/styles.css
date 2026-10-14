@@ -86,7 +86,7 @@ body {
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 12px;
 }
 
@@ -1420,15 +1420,30 @@ textarea.invalid {
 
 /* ---- Header back button (secondary views) ------------------ */
 
+/* On secondary pages the back button sits on the left while the title stays
+   centered on the whole header (absolute-centered so the button doesn't shift
+   it off-center). */
 .app-header.with-back {
-  gap: 10px;
+  position: sticky; /* keep sticky; also act as positioning context */
   justify-content: flex-start;
 }
 
-/* On secondary pages the title sits right after the back button (left-aligned)
-   so it reads clearly instead of being pushed to the far right. */
+.app-header.with-back .back-btn {
+  position: relative;
+  z-index: 1;
+}
+
 .app-header.with-back h1 {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   font-size: 1.25rem;
+  /* Avoid overlapping the back button on narrow screens. */
+  max-width: 55%;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .back-btn {
