@@ -17,6 +17,7 @@ import { renderAssets } from './views/assets.js';
 import { renderDebts } from './views/debts.js';
 import { renderInvestments } from './views/investments.js';
 import { renderLaporan } from './views/laporan.js';
+import { renderCategoryManager } from './views/categoryManager.js';
 import { openTransactionForm } from './views/transactionForm.js';
 
 /**
@@ -28,12 +29,45 @@ import { openTransactionForm } from './views/transactionForm.js';
 let activeView = 'beranda';
 
 /** Views reachable from Lainnya that render with a back affordance. */
-const SECONDARY = new Set(['budget', 'aset', 'utang', 'investasi', 'laporan']);
+const SECONDARY = new Set(['budget', 'aset', 'utang', 'investasi', 'laporan', 'kategori']);
+
+/**
+ * The last Lainnya sub-feature the user opened (e.g. 'investasi'). When the
+ * user taps the Lainnya tab again, we return here instead of the hub, so
+ * switching to Beranda/Dompet/Transaksi and back doesn't lose their place.
+ * Cleared when they explicitly go back to the hub.
+ * @type {string|null}
+ */
+let lastLainnyaView = null;
 
 const root = /** @type {HTMLElement} */ (document.getElementById('app'));
 
 function setView(view) {
+  // Remember the last secondary (Lainnya) sub-feature we navigated into.
+  if (SECONDARY.has(view)) lastLainnyaView = view;
+  // Going back to the hub explicitly clears the remembered sub-feature.
+  if (view === 'lainnya') lastLainnyaView = null;
   activeView = view;
+  renderApp();
+}
+
+/**
+ * Handle a tap on the "Lainnya" bottom-nav tab: if there's a remembered
+ * sub-feature, return to it; otherwise show the hub.
+ */
+function openLainnyaTab() {
+  if (lastLainnyaView && SECONDARY.has(lastLainnyaView)) {
+    activeView = lastLainnyaView;
+  } else {
+    activeView = 'lainnya';
+  }
+  renderApp();
+}
+
+/** Go back from a secondary view to the Lainnya hub (clears memory). */
+function backToLainnya() {
+  lastLainnyaView = null;
+  activeView = 'lainnya';
   renderApp();
 }
 
@@ -58,7 +92,7 @@ function renderApp() {
           'button',
           {
             class: 'back-btn',
-            onClick: () => setView('lainnya'),
+            onClick: () => backToLainnya(),
             'aria-label': t.app.back,
           },
           [icon('chevronLeft', { size: 20 }), el('span', {}, t.app.back)]
@@ -75,7 +109,12 @@ function renderApp() {
     navButton('dompet', 'wallet', t.nav.dompet),
     fabButton(),
     navButton('transaksi', 'transactions', t.nav.transaksi),
-    navButton('lainnya', 'more', t.nav.lainnya),
+    // Lainnya tab: active for the hub AND any of its sub-features; tapping it
+    // returns to the last sub-feature if there is one.
+    navButton('lainnya', 'more', t.nav.lainnya, {
+      active: activeView === 'lainnya' || isSecondary,
+      onClick: openLainnyaTab,
+    }),
   ]);
 
   const children = [header, main, nav];
@@ -132,6 +171,9 @@ function renderActiveView(main) {
     case 'laporan':
       renderLaporan(main);
       break;
+    case 'kategori':
+      renderCategoryManager(main);
+      break;
     default:
       // Secondary sections not yet implemented in this phase.
       renderComingSoon(main);
@@ -146,13 +188,14 @@ function renderComingSoon(main) {
  * A bottom-nav tab button.
  * @param {string} view @param {import('./lib/icons.js').icon extends (n: infer N, ...a: any) => any ? N : string} iconName @param {string} label
  */
-function navButton(view, iconName, label) {
-  const active = activeView === view;
+function navButton(view, iconName, label, opts = {}) {
+  const active = opts.active != null ? opts.active : activeView === view;
+  const onClick = opts.onClick || (() => setView(view));
   return el(
     'button',
     {
       class: 'nav-btn' + (active ? ' active' : ''),
-      onClick: () => setView(view),
+      onClick,
       'aria-current': active ? 'page' : undefined,
     },
     [
@@ -175,12 +218,126 @@ function fabButton() {
   );
 }
 
+/**
+ * Edge-swipe-to-go-back gesture (like native/Gojek): on a secondary (Lainnya
+ * sub-feature) view, a swipe starting from the left screen edge and dragging
+ * right returns to the Lainnya hub. The page follows the finger and either
+ * completes (past threshold) or snaps back on release.
+ */
+function setupEdgeSwipeBack() {
+  const EDGE = 28; // px from the left edge where a back-swipe may start
+  const COMPLETE_RATIO = 0.35; // fraction of screen width to trigger back
+  const COMPLETE_VELOCITY = 0.5; // px/ms flick that also triggers back
+
+  let tracking = false;
+  let startX = 0;
+  let startY = 0;
+  let startT = 0;
+  let dx = 0;
+  let decidedHoriz = false; // locked into horizontal drag
+  let cancelled = false;
+
+  /** The nodes we translate during the drag. */
+  function panels() {
+    return /** @type {HTMLElement[]} */ (
+      [root.querySelector('.app-header'), root.querySelector('.main')].filter(Boolean)
+    );
+  }
+
+  function setOffset(x, animate) {
+    for (const p of panels()) {
+      p.style.transition = animate ? 'transform 0.2s ease' : '';
+      p.style.transform = x ? `translateX(${x}px)` : '';
+    }
+  }
+
+  function reset() {
+    tracking = false;
+    decidedHoriz = false;
+    cancelled = false;
+    dx = 0;
+  }
+
+  document.addEventListener(
+    'touchstart',
+    (e) => {
+      // Only on secondary views, single touch starting at the left edge, and
+      // not while a modal is open.
+      if (!SECONDARY.has(activeView)) return;
+      if (document.querySelector('.modal-backdrop')) return;
+      if (e.touches.length !== 1) return;
+      const tch = e.touches[0];
+      if (tch.clientX > EDGE) return;
+      tracking = true;
+      cancelled = false;
+      decidedHoriz = false;
+      startX = tch.clientX;
+      startY = tch.clientY;
+      startT = Date.now();
+      dx = 0;
+    },
+    { passive: true }
+  );
+
+  document.addEventListener(
+    'touchmove',
+    (e) => {
+      if (!tracking || cancelled) return;
+      const tch = e.touches[0];
+      dx = tch.clientX - startX;
+      const dy = tch.clientY - startY;
+      if (!decidedHoriz) {
+        // Decide gesture intent: horizontal → drag; vertical → let it scroll.
+        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+        if (Math.abs(dy) > Math.abs(dx)) {
+          cancelled = true;
+          return;
+        }
+        decidedHoriz = true;
+      }
+      if (dx < 0) dx = 0; // only drag rightward
+      // Resist a little so it feels anchored.
+      setOffset(dx, false);
+      if (e.cancelable) e.preventDefault();
+    },
+    { passive: false }
+  );
+
+  document.addEventListener('touchend', () => {
+    if (!tracking) return;
+    const dt = Math.max(1, Date.now() - startT);
+    const velocity = dx / dt;
+    const width = window.innerWidth || 360;
+    const shouldComplete = dx > width * COMPLETE_RATIO || velocity > COMPLETE_VELOCITY;
+    if (decidedHoriz && !cancelled && shouldComplete) {
+      // Slide the rest of the way out, then navigate back to the hub.
+      setOffset(width, true);
+      setTimeout(() => {
+        setOffset(0, false);
+        backToLainnya();
+      }, 180);
+    } else {
+      // Snap back into place.
+      setOffset(0, true);
+      setTimeout(() => setOffset(0, false), 220);
+    }
+    reset();
+  });
+
+  document.addEventListener('touchcancel', () => {
+    if (!tracking) return;
+    setOffset(0, true);
+    reset();
+  });
+}
+
 // Re-render whenever the store changes.
 store.subscribe(renderApp);
 
 // Boot.
 store.init();
 renderApp();
+setupEdgeSwipeBack();
 
 // Register the service worker (non-blocking, graceful failure) (Req 10.4, 10.5).
 if ('serviceWorker' in navigator) {
