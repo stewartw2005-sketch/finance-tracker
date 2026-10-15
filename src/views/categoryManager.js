@@ -11,9 +11,29 @@ import { categoryNameExists } from '../lib/validation.js';
 import { t } from '../lib/i18n.js';
 import { icon } from '../lib/icons.js';
 
+/**
+ * Render the category manager UI into a page container (routed secondary view).
+ * @param {HTMLElement} container
+ */
+export function renderCategoryManager(container) {
+  const content = el('div', { class: 'stack' });
+  buildCategoryManager(content);
+  container.append(content);
+}
+
+/** Open the category manager as a modal (kept for callers that prefer it). */
 export function openCategoryManager() {
   const content = el('div', { class: 'stack' });
+  buildCategoryManager(content);
+  openModal(t.category.title, content);
+}
 
+/**
+ * Build the category manager UI into the given `content` element. Works both
+ * as modal content and as a routed page body.
+ * @param {HTMLElement} content
+ */
+function buildCategoryManager(content) {
   // Add-form state (kept across rebuilds within this session).
   let inputValue = '';
   /** @type {import('../types.js').TxType} */
@@ -129,7 +149,7 @@ export function openCategoryManager() {
               {
                 class: 'icon-btn',
                 'aria-label': t.category.deleteAria(displayName),
-                onClick: () => deleteCategory(c, rebuild),
+                onClick: () => deleteCategory(c, rebuild, content),
               },
               icon('trash', { size: 18 })
             ),
@@ -219,7 +239,6 @@ export function openCategoryManager() {
   }
 
   rebuild();
-  openModal(t.category.title, content);
 }
 
 /**
@@ -228,8 +247,9 @@ export function openCategoryManager() {
  * (which would close the category manager).
  * @param {import('../types.js').Category} c
  * @param {() => void} rebuild
+ * @param {HTMLElement} content - the manager content node (modal or page body)
  */
-function deleteCategory(c, rebuild) {
+function deleteCategory(c, rebuild, content) {
   const inUse = store.countTransactionsForCategory(c.id);
   const displayName = store.categoryName(c.id);
   const message =
@@ -254,8 +274,9 @@ function deleteCategory(c, rebuild) {
     ]),
   ]);
 
-  // Replace content with the confirm; rebuild restores the normal view.
-  const parent = document.querySelector('.modal .stack');
+  // Replace content with the confirm; rebuild restores the normal view. Works
+  // whether the manager is a modal or a routed page (content is the body node).
+  const parent = content || document.querySelector('.modal .stack');
   if (parent) {
     parent.textContent = '';
     parent.appendChild(confirmBlock);

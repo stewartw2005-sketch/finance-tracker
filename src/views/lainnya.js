@@ -6,7 +6,6 @@
 import { el } from '../lib/dom.js';
 import { t } from '../lib/i18n.js';
 import { icon } from '../lib/icons.js';
-import { openCategoryManager } from './categoryManager.js';
 
 /**
  * Render the Lainnya hub.
@@ -21,7 +20,7 @@ export function renderLainnya(container, navigate) {
     { id: 'utang', icon: 'debt', label: t.lainnya.utang, ready: true, onClick: () => navigate('utang') },
     { id: 'investasi', icon: 'chart', label: t.lainnya.investasi, ready: true, onClick: () => navigate('investasi') },
     { id: 'laporan', icon: 'report', label: t.lainnya.laporan, ready: true, onClick: () => navigate('laporan') },
-    { id: 'kategori', icon: 'tag', label: t.lainnya.kategori, ready: true, onClick: () => openCategoryManager() },
+    { id: 'kategori', icon: 'tag', label: t.lainnya.kategori, ready: true, onClick: () => navigate('kategori') },
   ];
 
   const list = el(
