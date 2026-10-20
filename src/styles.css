@@ -3,7 +3,7 @@
    ============================================================ */
 
 :root {
-  /* Black theme palette */
+  /* Dark theme palette (default) */
   --bg: #000000;
   --surface: #0d0d0f;
   --surface-2: #16161a;
@@ -14,11 +14,14 @@
   --text-dim: #6b6b76;
 
   --accent: #ffffff;
+  --accent-text: #000000; /* text on the --accent fill (primary buttons) */
   --accent-nav: #c6f24e; /* nav accent (center button + active tab); easy to retint */
+  --accent-on: #0d0d0f; /* text/icon color that sits ON the accent fill */
   --income: #34d399; /* green */
   --expense: #f87171; /* red */
   --danger: #ef4444;
   --focus: #60a5fa;
+  --scrim: rgba(0, 0, 0, 0.6); /* modal backdrop / overlays */
 
   --radius: 14px;
   --radius-sm: 10px;
@@ -32,6 +35,37 @@
   --safe-right: env(safe-area-inset-right, 0px);
 
   --nav-height: 60px;
+
+  /* Translucent chrome backgrounds (header / bottom nav). */
+  --header-bg: rgba(0, 0, 0, 0.85);
+  --nav-bg: rgba(10, 10, 12, 0.92);
+}
+
+/* Light theme palette — applied when <html data-theme="light">. Keeps the
+   lime accent (slightly deepened for contrast on white) and income/expense
+   semantics; surfaces become white/light-gray with dark text. */
+html[data-theme='light'] {
+  --bg: #f4f5f7;
+  --surface: #ffffff;
+  --surface-2: #ffffff;
+  --surface-3: #eef0f3;
+  --border: #e2e5ea;
+  --text: #15161a;
+  --text-muted: #5b6069;
+  --text-dim: #9aa0aa;
+
+  --accent: #15161a;
+  --accent-text: #ffffff; /* text on the --accent fill (primary buttons) */
+  --accent-nav: #5bbf1f; /* deeper lime-green so it reads on white */
+  --accent-on: #ffffff; /* text/icon on the accent fill */
+  --income: #1aa06a; /* green with enough contrast on white */
+  --expense: #dc3b3b; /* red */
+  --danger: #dc2626;
+  --focus: #2563eb;
+  --scrim: rgba(20, 22, 26, 0.35);
+
+  --header-bg: rgba(255, 255, 255, 0.88);
+  --nav-bg: rgba(255, 255, 255, 0.92);
 }
 
 * {
@@ -81,21 +115,69 @@ body {
   padding: calc(var(--safe-top) + 14px) var(--gap) 14px;
   padding-left: calc(var(--safe-left) + var(--gap));
   padding-right: calc(var(--safe-right) + var(--gap));
-  background: rgba(0, 0, 0, 0.85);
+  background: var(--header-bg);
   backdrop-filter: saturate(140%) blur(10px);
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   gap: 12px;
 }
 
+/* Left / right header zones hold the theme & language toggles (and the back
+   button). The title is absolute-centered over the whole header so it stays
+   centered regardless of what's in the zones. */
+.header-left,
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 1;
+}
+.header-right {
+  justify-content: flex-end;
+}
+
 .app-header h1 {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   font-size: 1.3rem;
   margin: 0;
   font-weight: 700;
   color: var(--text);
   letter-spacing: 0.01em;
+  max-width: 50%;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Header toggle buttons (theme sun/moon, language EN/ID). */
+.header-toggle {
+  min-width: 38px;
+  height: 38px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  background: var(--surface-3);
+  color: var(--text);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.header-toggle:active {
+  transform: scale(0.96);
+}
+.header-toggle svg {
+  display: block;
+}
+.lang-toggle .lang-code {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
 }
 
 .main {
@@ -126,7 +208,7 @@ body {
   display: flex;
   align-items: stretch;
   justify-content: space-around;
-  background: rgba(10, 10, 12, 0.92);
+  background: var(--nav-bg);
   backdrop-filter: saturate(140%) blur(12px);
   border-top: 1px solid var(--border);
 }
@@ -173,7 +255,7 @@ body {
   border-radius: 50%;
   border: 4px solid var(--bg);
   background: var(--accent-nav);
-  color: #0a0a0a;
+  color: var(--accent-on);
   line-height: 1;
   display: grid;
   place-items: center;
@@ -383,7 +465,7 @@ textarea.invalid {
 
 .btn.primary {
   background: var(--accent);
-  color: #000;
+  color: var(--accent-text);
   border-color: var(--accent);
   font-weight: 600;
 }
@@ -653,7 +735,7 @@ textarea.invalid {
   position: fixed;
   inset: 0;
   z-index: 50;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--scrim);
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -1237,7 +1319,7 @@ textarea.invalid {
   padding: 0 5px;
   border-radius: 9px;
   background: var(--accent-nav);
-  color: #0a0a0a;
+  color: var(--accent-on);
   font-size: 0.72rem;
   font-weight: 700;
   display: inline-grid;
@@ -1420,30 +1502,11 @@ textarea.invalid {
 
 /* ---- Header back button (secondary views) ------------------ */
 
-/* On secondary pages the back button sits on the left while the title stays
-   centered on the whole header (absolute-centered so the button doesn't shift
-   it off-center). */
-.app-header.with-back {
-  position: sticky; /* keep sticky; also act as positioning context */
-  justify-content: flex-start;
-}
-
-.app-header.with-back .back-btn {
-  position: relative;
-  z-index: 1;
-}
-
+/* On secondary pages the back button sits in the left zone next to the theme
+   toggle; the title stays absolute-centered via the base .app-header h1 rule. */
 .app-header.with-back h1 {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 1.25rem;
-  /* Avoid overlapping the back button on narrow screens. */
-  max-width: 55%;
-  text-align: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 1.2rem;
+  max-width: 44%;
 }
 
 .back-btn {
@@ -1478,7 +1541,7 @@ textarea.invalid {
   top: 50%;
   transform: translate(-50%, -50%);
   z-index: 70;
-  background: rgba(20, 20, 24, 0.96);
+  background: var(--surface-3);
   color: var(--text);
   border: 1px solid var(--border);
   padding: 14px 22px;

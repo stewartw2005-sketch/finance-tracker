@@ -2,7 +2,7 @@
 /** Date helpers working in the user's local timezone. All dates are stored
  *  as ISO 'YYYY-MM-DD' strings; months as 'YYYY-MM'. Labels use Indonesian
  *  formatting (Req 12.5). */
-import { locale } from './i18n.js';
+import { getLocale } from './i18n.js';
 
 /** Indonesian Western time (WIB) is UTC+7, no DST. */
 const WIB_OFFSET_MIN = 7 * 60;
@@ -100,7 +100,7 @@ export function formatMonthLabel(monthKey) {
   const [y, m] = (monthKey || '').split('-').map(Number);
   if (!y || !m) return monthKey || '';
   const d = new Date(y, m - 1, 1);
-  return d.toLocaleDateString(locale, { month: 'long', year: 'numeric' });
+  return d.toLocaleDateString(getLocale(), { month: 'long', year: 'numeric' });
 }
 
 /**
@@ -112,7 +112,7 @@ export function formatDateLabel(isoDate) {
   const [y, m, d] = (isoDate || '').split('-').map(Number);
   if (!y || !m || !d) return isoDate || '';
   const date = new Date(y, m - 1, d);
-  return date.toLocaleDateString(locale, {
+  return date.toLocaleDateString(getLocale(), {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
@@ -129,7 +129,7 @@ export function formatDateWithDay(isoDate) {
   const [y, m, d] = (isoDate || '').split('-').map(Number);
   if (!y || !m || !d) return isoDate || '';
   const date = new Date(y, m - 1, d);
-  return date.toLocaleDateString(locale, {
+  return date.toLocaleDateString(getLocale(), {
     weekday: 'long',
     day: 'numeric',
     month: 'short',
@@ -146,7 +146,7 @@ export function dayName(isoDate) {
   const [y, m, d] = (isoDate || '').split('-').map(Number);
   if (!y || !m || !d) return '';
   const date = new Date(y, m - 1, d);
-  return date.toLocaleDateString(locale, { weekday: 'long' });
+  return date.toLocaleDateString(getLocale(), { weekday: 'long' });
 }
 
 /**
