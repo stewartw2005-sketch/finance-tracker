@@ -4,9 +4,10 @@
  * displayed as `Rp1.250.000` with Indonesian thousands separators and no
  * decimal places. Internal math uses whole-rupiah integers.
  */
-import { locale } from './i18n.js';
-
-const fmt = new Intl.NumberFormat(locale, {
+// Currency is always Indonesian Rupiah with Indonesian grouping ("Rp1.250.000")
+// regardless of the UI language, so money always looks consistent. Hence the
+// formatter is pinned to id-ID and does not depend on the active UI locale.
+const fmt = new Intl.NumberFormat('id-ID', {
   style: 'currency',
   currency: 'IDR',
   minimumFractionDigits: 0,

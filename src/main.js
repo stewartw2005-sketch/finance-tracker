@@ -6,7 +6,7 @@
  */
 import { el, render } from './lib/dom.js';
 import * as store from './state/store.js';
-import { t } from './lib/i18n.js';
+import { t, setLanguage, currentLang } from './lib/i18n.js';
 import { icon } from './lib/icons.js';
 import { renderBeranda } from './views/beranda.js';
 import { renderWallets } from './views/wallets.js';
@@ -41,6 +41,52 @@ const SECONDARY = new Set(['budget', 'aset', 'utang', 'investasi', 'laporan', 'k
 let lastLainnyaView = null;
 
 const root = /** @type {HTMLElement} */ (document.getElementById('app'));
+
+// ---- Theme (light / dark) -------------------------------------------------
+
+const THEME_LS_KEY = 'appTheme';
+
+/** Read the persisted theme, defaulting to dark. @returns {'dark'|'light'} */
+function initialTheme() {
+  try {
+    const v = localStorage.getItem(THEME_LS_KEY);
+    if (v === 'light' || v === 'dark') return v;
+  } catch {
+    /* ignore */
+  }
+  return 'dark';
+}
+
+/** @type {'dark'|'light'} */
+let currentTheme = initialTheme();
+
+/** Apply the theme to <html> (data-theme) and sync the browser theme-color. */
+function applyTheme() {
+  const html = document.documentElement;
+  if (currentTheme === 'light') html.setAttribute('data-theme', 'light');
+  else html.removeAttribute('data-theme');
+  // Keep the iOS status-bar / browser chrome color in step with the theme.
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', currentTheme === 'light' ? '#f4f5f7' : '#000000');
+}
+
+/** Toggle between light and dark, persist, and re-render. */
+function toggleTheme() {
+  currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
+  try {
+    localStorage.setItem(THEME_LS_KEY, currentTheme);
+  } catch {
+    /* ignore */
+  }
+  applyTheme();
+  renderApp();
+}
+
+/** Toggle UI language (id <-> en), persist (handled in i18n), and re-render. */
+function toggleLanguage() {
+  setLanguage(currentLang === 'id' ? 'en' : 'id');
+  renderApp();
+}
 
 function setView(view) {
   // Remember the last secondary (Lainnya) sub-feature we navigated into.
@@ -86,7 +132,34 @@ function renderApp() {
 
   const isSecondary = SECONDARY.has(activeView);
 
-  const header = el('header', { class: 'app-header' + (isSecondary ? ' with-back' : '') }, [
+  // Theme toggle (top-left): shows the icon of the theme you'd switch TO.
+  const themeToggle = el(
+    'button',
+    {
+      class: 'header-toggle theme-toggle',
+      type: 'button',
+      onClick: () => toggleTheme(),
+      'aria-label': currentTheme === 'dark' ? t.settings.toggleThemeToLight : t.settings.toggleThemeToDark,
+      title: currentTheme === 'dark' ? t.settings.themeLight : t.settings.themeDark,
+    },
+    icon(currentTheme === 'dark' ? 'sun' : 'moon', { size: 20 })
+  );
+
+  // Language toggle (top-right): shows EN/ID; tap to switch.
+  const langToggle = el(
+    'button',
+    {
+      class: 'header-toggle lang-toggle',
+      type: 'button',
+      onClick: () => toggleLanguage(),
+      'aria-label': t.settings.toggleLanguage,
+      title: t.settings.language,
+    },
+    el('span', { class: 'lang-code' }, currentLang === 'id' ? 'ID' : 'EN')
+  );
+
+  const headerLeft = el('div', { class: 'header-left' }, [
+    themeToggle,
     isSecondary
       ? el(
           'button',
@@ -98,7 +171,12 @@ function renderApp() {
           [icon('chevronLeft', { size: 20 }), el('span', {}, t.app.back)]
         )
       : null,
+  ]);
+
+  const header = el('header', { class: 'app-header' + (isSecondary ? ' with-back' : '') }, [
+    headerLeft,
     el('h1', {}, headerTitle(activeView)),
+    el('div', { class: 'header-right' }, [langToggle]),
   ]);
 
   const main = el('main', { class: 'main', id: 'view-root' });
@@ -335,6 +413,7 @@ function setupEdgeSwipeBack() {
 store.subscribe(renderApp);
 
 // Boot.
+applyTheme(); // apply persisted theme before first paint
 store.init();
 renderApp();
 setupEdgeSwipeBack();
