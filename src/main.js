@@ -132,31 +132,36 @@ function renderApp() {
 
   const isSecondary = SECONDARY.has(activeView);
 
-  // Theme toggle (top-left): shows the icon of the theme you'd switch TO.
-  const themeToggle = el(
-    'button',
-    {
-      class: 'header-toggle theme-toggle',
-      type: 'button',
-      onClick: () => toggleTheme(),
-      'aria-label': currentTheme === 'dark' ? t.settings.toggleThemeToLight : t.settings.toggleThemeToDark,
-      title: currentTheme === 'dark' ? t.settings.themeLight : t.settings.themeDark,
-    },
-    icon(currentTheme === 'dark' ? 'sun' : 'moon', { size: 20 })
-  );
+  // Theme + language toggles appear only on the primary tabs (Beranda, Dompet,
+  // Transaksi, Lainnya). On the Lainnya sub-pages they're hidden so the
+  // "Kembali" button stays cleanly on the left.
+  const themeToggle = isSecondary
+    ? null
+    : el(
+        'button',
+        {
+          class: 'header-toggle theme-toggle',
+          type: 'button',
+          onClick: () => toggleTheme(),
+          'aria-label': currentTheme === 'dark' ? t.settings.toggleThemeToLight : t.settings.toggleThemeToDark,
+          title: currentTheme === 'dark' ? t.settings.themeLight : t.settings.themeDark,
+        },
+        icon(currentTheme === 'dark' ? 'sun' : 'moon', { size: 20 })
+      );
 
-  // Language toggle (top-right): shows EN/ID; tap to switch.
-  const langToggle = el(
-    'button',
-    {
-      class: 'header-toggle lang-toggle',
-      type: 'button',
-      onClick: () => toggleLanguage(),
-      'aria-label': t.settings.toggleLanguage,
-      title: t.settings.language,
-    },
-    el('span', { class: 'lang-code' }, currentLang === 'id' ? 'ID' : 'EN')
-  );
+  const langToggle = isSecondary
+    ? null
+    : el(
+        'button',
+        {
+          class: 'header-toggle lang-toggle',
+          type: 'button',
+          onClick: () => toggleLanguage(),
+          'aria-label': t.settings.toggleLanguage,
+          title: t.settings.language,
+        },
+        el('span', { class: 'lang-code' }, currentLang === 'id' ? 'ID' : 'EN')
+      );
 
   const headerLeft = el('div', { class: 'header-left' }, [
     themeToggle,

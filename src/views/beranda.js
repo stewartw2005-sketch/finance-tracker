@@ -29,7 +29,6 @@ export function renderBeranda(container, navigate) {
   const ringkasanHidden = store.isHidden('ringkasan');
 
   container.append(
-    greetingHeader(),
     glanceCard(summary, sekilasHidden),
     el('div', { class: 'card-head' }, [
       el('div', { class: 'section-title', style: 'margin:0' }, t.beranda.ringkasanBulan),
@@ -63,11 +62,6 @@ function lockButton(key, hidden) {
     },
     icon(hidden ? 'lock' : 'unlock', { size: 18 })
   );
-}
-
-/** Time-of-day greeting header. */
-function greetingHeader() {
-  return el('div', { class: 'greeting' }, store.greeting());
 }
 
 /**
