@@ -890,6 +890,17 @@ export function setTxSearch(query) {
   notify();
 }
 
+/**
+ * Set the search query WITHOUT notifying subscribers. The Transaksi view uses
+ * this so typing in the search box doesn't trigger a full app re-render (which
+ * would rebuild the input and drop focus, closing the mobile keyboard). The
+ * view updates just its results list in place instead.
+ * @param {string} query
+ */
+export function setTxSearchSilent(query) {
+  state.txFilters = { ...state.txFilters, search: query };
+}
+
 /** Reset all advanced Transaksi filters and search. */
 export function clearTxFilters() {
   state.txFilters = { from: '', to: '', walletId: '', categoryId: '', type: '', search: '' };

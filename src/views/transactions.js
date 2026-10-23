@@ -18,30 +18,32 @@ import { openModal, closeModal, confirmDialog } from './modal.js';
  */
 export function renderTransactions(container) {
   const filters = store.getState().txFilters;
-  const list = store.selectTransactionsAdvanced();
-  const groups = store.groupByDate(list);
-  const activeCount = store.activeFilterCount();
 
   // ---- Search + filter row ----
+  // The search input is created ONCE and never re-created while typing, so it
+  // keeps focus and the mobile keyboard stays open. Typing updates the filter
+  // silently (no global re-render) and only the results area below refreshes.
   const searchInput = el('input', {
     type: 'search',
     value: filters.search,
     placeholder: t.tx.searchPlaceholder,
     'aria-label': t.tx.searchAria,
-    onInput: (e) => store.setTxSearch(e.target.value),
+    onInput: (e) => {
+      store.setTxSearchSilent(e.target.value);
+      refreshResults();
+    },
   });
 
   const filterBtn = el(
     'button',
     {
-      class: 'filter-btn' + (activeCount > 0 ? ' active' : ''),
+      class: 'filter-btn',
       'aria-label': t.tx.filterButton,
       onClick: () => openFilterSheet(),
     },
     [
       icon('more', { size: 18 }),
       el('span', {}, t.tx.filterButton),
-      activeCount > 0 ? el('span', { class: 'filter-count' }, String(activeCount)) : null,
     ]
   );
 
@@ -50,40 +52,66 @@ export function renderTransactions(container) {
     filterBtn,
   ]);
 
-  // Active-filter summary / clear
-  const summaryRow =
-    activeCount > 0 || filters.search
-      ? el('div', { class: 'tx-filter-summary' }, [
-          el('span', {}, t.tx.resultCount(list.length)),
-          el(
-            'button',
-            { class: 'link-btn', onClick: () => store.clearTxFilters() },
-            t.app.clear
-          ),
-        ])
-      : el('div', { class: 'section-title' }, t.tx.resultCount(list.length));
+  // Results area (summary + list) is the only part that rebuilds on each
+  // keystroke. Keeping it a stable wrapper means the search input above is
+  // untouched and retains focus.
+  const results = el('div', { class: 'tx-results' });
 
-  // ---- Grouped list ----
-  let body;
-  if (list.length === 0) {
-    body = el('div', { class: 'empty' }, [
-      el('div', {}, t.tx.emptyTitle),
-      el('div', { style: 'font-size:0.85rem;margin-top:4px' }, t.tx.emptyHint),
-    ]);
-  } else {
-    body = el(
-      'div',
-      { class: 'tx-groups' },
-      groups.map((g) =>
-        el('section', { class: 'tx-group' }, [
-          el('div', { class: 'tx-group-head' }, g.label),
-          el('ul', { class: 'tx-list' }, g.items.map((tx) => transactionRow(tx))),
-        ])
-      )
-    );
+  /** Rebuild just the summary + grouped list from the current filters. */
+  function refreshResults() {
+    const list = store.selectTransactionsAdvanced();
+    const groups = store.groupByDate(list);
+    const activeCount = store.activeFilterCount();
+    const curFilters = store.getState().txFilters;
+
+    // Keep the filter button's active state in sync.
+    filterBtn.classList.toggle('active', activeCount > 0);
+    let countBadge = filterBtn.querySelector('.filter-count');
+    if (activeCount > 0) {
+      if (!countBadge) {
+        countBadge = el('span', { class: 'filter-count' });
+        filterBtn.append(countBadge);
+      }
+      countBadge.textContent = String(activeCount);
+    } else if (countBadge) {
+      countBadge.remove();
+    }
+
+    // Summary / clear row.
+    const summaryRow =
+      activeCount > 0 || curFilters.search
+        ? el('div', { class: 'tx-filter-summary' }, [
+            el('span', {}, t.tx.resultCount(list.length)),
+            el('button', { class: 'link-btn', onClick: () => store.clearTxFilters() }, t.app.clear),
+          ])
+        : el('div', { class: 'section-title' }, t.tx.resultCount(list.length));
+
+    // Grouped list / empty state.
+    let body;
+    if (list.length === 0) {
+      body = el('div', { class: 'empty' }, [
+        el('div', {}, t.tx.emptyTitle),
+        el('div', { style: 'font-size:0.85rem;margin-top:4px' }, t.tx.emptyHint),
+      ]);
+    } else {
+      body = el(
+        'div',
+        { class: 'tx-groups' },
+        groups.map((g) =>
+          el('section', { class: 'tx-group' }, [
+            el('div', { class: 'tx-group-head' }, g.label),
+            el('ul', { class: 'tx-list' }, g.items.map((tx) => transactionRow(tx))),
+          ])
+        )
+      );
+    }
+
+    results.textContent = '';
+    results.append(summaryRow, body);
   }
 
-  container.append(controls, summaryRow, body);
+  refreshResults();
+  container.append(controls, results);
 }
 
 /**
