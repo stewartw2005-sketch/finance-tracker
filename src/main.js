@@ -93,16 +93,16 @@ function saveScroll() {
 }
 
 /**
- * Restore the saved scroll for the active view (0 if none). Done after render,
- * on the next frame so layout is in place first.
+ * Restore the saved scroll for the active view (0 if none). Called
+ * SYNCHRONOUSLY right after the new content is rendered, before the browser
+ * paints — so the page appears already at the correct scroll position with no
+ * visible jump/snap. (The content is swapped synchronously, so its full height
+ * exists by the time we scroll.)
  * @param {number} [forced] - if given, scroll to exactly this position
  */
 function restoreScroll(forced) {
   const y = forced != null ? forced : scrollPositions[activeView] || 0;
-  // Two rAFs: let the new DOM lay out before scrolling.
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => window.scrollTo(0, y));
-  });
+  window.scrollTo(0, y);
 }
 
 /**
@@ -127,9 +127,9 @@ function setView(view, opts = {}) {
  */
 function tapPrimaryTab(view) {
   if (activeView === view) {
-    // Re-tapping the current tab: jump to top.
+    // Re-tapping the current tab: smooth-scroll to the top.
     scrollPositions[view] = 0;
-    restoreScroll(0);
+    scrollToTopSmooth();
     return;
   }
   // Switching tabs: restore where we left this tab (setView restores scroll).
@@ -145,10 +145,19 @@ function tapPrimaryTab(view) {
 function openLainnyaTab() {
   if (activeView === 'lainnya') {
     scrollPositions['lainnya'] = 0;
-    restoreScroll(0);
+    scrollToTopSmooth();
     return;
   }
   setView('lainnya');
+}
+
+/** Smoothly scroll to the top (used when re-tapping the current tab). */
+function scrollToTopSmooth() {
+  try {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } catch {
+    window.scrollTo(0, 0);
+  }
 }
 
 /** Go back from a secondary view to the Lainnya hub. */
