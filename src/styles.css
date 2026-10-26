@@ -193,19 +193,18 @@ body {
   min-width: 0;
 }
 
-/* Subtle fade when switching tabs (added only on real view changes). Header
-   and bottom nav are persistent, so only this content fades — no flicker. */
+/* Gentle opacity-only fade when switching tabs (added only on real view
+   changes). No vertical movement, so there's no jump — header and bottom nav
+   are persistent, so only this content cross-fades. */
 .main.view-enter {
-  animation: view-fade 0.18s ease;
+  animation: view-fade 0.15s ease;
 }
 @keyframes view-fade {
   from {
-    opacity: 0;
-    transform: translateY(4px);
+    opacity: 0.35;
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 @media (prefers-reduced-motion: reduce) {
