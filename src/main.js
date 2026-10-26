@@ -161,22 +161,64 @@ function headerTitle(view) {
   return t.header[view] || t.app.name;
 }
 
-function renderApp() {
-  const state = store.getState();
+// ---- Persistent app shell -------------------------------------------------
+// The header, <main>, and bottom nav are created ONCE and then updated in
+// place. Only the contents of <main> are swapped when the view changes. This
+// avoids destroying/recreating the sticky header + nav on every tab switch,
+// which caused a visible flicker/jump.
+/** @type {{ header: HTMLElement, h1: HTMLElement, headerLeft: HTMLElement, headerRight: HTMLElement, main: HTMLElement, navButtons: Record<string, HTMLElement>, toastSlot: HTMLElement, noticeSlot: HTMLElement } | null} */
+let shell = null;
 
-  if (!state.loaded) {
-    render(root, el('div', { class: 'loading' }, t.app.loading));
-    return;
-  }
+/** The view that was last rendered into <main>, to detect real view changes. */
+let lastRenderedView = null;
 
+/** Build the one-time shell DOM and mount it into #app. */
+function buildShell() {
+  const h1 = el('h1', {}, headerTitle(activeView));
+  const headerLeft = el('div', { class: 'header-left' });
+  const headerRight = el('div', { class: 'header-right' });
+  const header = el('header', { class: 'app-header' }, [headerLeft, h1, headerRight]);
+
+  const main = el('main', { class: 'main', id: 'view-root' });
+
+  /** @type {Record<string, HTMLElement>} */
+  const navButtons = {};
+  navButtons.beranda = navButton('beranda', 'home', t.nav.beranda, { onClick: () => tapPrimaryTab('beranda') });
+  navButtons.dompet = navButton('dompet', 'wallet', t.nav.dompet, { onClick: () => tapPrimaryTab('dompet') });
+  const fab = fabButton();
+  navButtons.transaksi = navButton('transaksi', 'transactions', t.nav.transaksi, { onClick: () => tapPrimaryTab('transaksi') });
+  navButtons.lainnya = navButton('lainnya', 'more', t.nav.lainnya, { onClick: openLainnyaTab });
+  const nav = el('nav', { class: 'bottom-nav', 'aria-label': t.nav.beranda }, [
+    navButtons.beranda,
+    navButtons.dompet,
+    fab,
+    navButtons.transaksi,
+    navButtons.lainnya,
+  ]);
+
+  // Slots for transient toast/notice so they can appear/disappear without
+  // touching the rest of the shell.
+  const toastSlot = el('div', { class: 'slot-toast' });
+  const noticeSlot = el('div', { class: 'slot-notice' });
+
+  shell = { header, h1, headerLeft, headerRight, main, navButtons, toastSlot, noticeSlot };
+  render(root, [header, main, nav, toastSlot, noticeSlot]);
+}
+
+/** Rebuild the header's left/right zones + title for the current view. */
+function updateHeader() {
+  if (!shell) return;
   const isSecondary = SECONDARY.has(activeView);
 
-  // Theme + language toggles appear only on the primary tabs (Beranda, Dompet,
-  // Transaksi, Lainnya). On the Lainnya sub-pages they're hidden so the
-  // "Kembali" button stays cleanly on the left.
-  const themeToggle = isSecondary
-    ? null
-    : el(
+  // Title.
+  shell.h1.textContent = headerTitle(activeView);
+  shell.header.classList.toggle('with-back', isSecondary);
+
+  // Left zone: theme toggle (primary only) + back button (secondary only).
+  shell.headerLeft.textContent = '';
+  if (!isSecondary) {
+    shell.headerLeft.appendChild(
+      el(
         'button',
         {
           class: 'header-toggle theme-toggle',
@@ -186,11 +228,23 @@ function renderApp() {
           title: currentTheme === 'dark' ? t.settings.themeLight : t.settings.themeDark,
         },
         icon(currentTheme === 'dark' ? 'sun' : 'moon', { size: 20 })
-      );
+      )
+    );
+  } else {
+    shell.headerLeft.appendChild(
+      el(
+        'button',
+        { class: 'back-btn', onClick: () => backToLainnya(), 'aria-label': t.app.back },
+        [icon('chevronLeft', { size: 20 }), el('span', {}, t.app.back)]
+      )
+    );
+  }
 
-  const langToggle = isSecondary
-    ? null
-    : el(
+  // Right zone: language toggle (primary only).
+  shell.headerRight.textContent = '';
+  if (!isSecondary) {
+    shell.headerRight.appendChild(
+      el(
         'button',
         {
           class: 'header-toggle lang-toggle',
@@ -200,69 +254,74 @@ function renderApp() {
           title: t.settings.language,
         },
         el('span', { class: 'lang-code' }, currentLang === 'id' ? 'ID' : 'EN')
-      );
+      )
+    );
+  }
+}
 
-  const headerLeft = el('div', { class: 'header-left' }, [
-    themeToggle,
-    isSecondary
-      ? el(
-          'button',
-          {
-            class: 'back-btn',
-            onClick: () => backToLainnya(),
-            'aria-label': t.app.back,
-          },
-          [icon('chevronLeft', { size: 20 }), el('span', {}, t.app.back)]
-        )
-      : null,
-  ]);
+/** Update which bottom-nav tab is highlighted. */
+function updateNavActive() {
+  if (!shell) return;
+  const isSecondary = SECONDARY.has(activeView);
+  for (const [view, btn] of Object.entries(shell.navButtons)) {
+    const active = view === 'lainnya' ? activeView === 'lainnya' || isSecondary : activeView === view;
+    btn.classList.toggle('active', active);
+    if (active) btn.setAttribute('aria-current', 'page');
+    else btn.removeAttribute('aria-current');
+  }
+}
 
-  const header = el('header', { class: 'app-header' + (isSecondary ? ' with-back' : '') }, [
-    headerLeft,
-    el('h1', {}, headerTitle(activeView)),
-    el('div', { class: 'header-right' }, [langToggle]),
-  ]);
+/** Reflect the transient error toast / notice from the store. */
+function updateTransient() {
+  if (!shell) return;
+  const state = store.getState();
 
-  const main = el('main', { class: 'main', id: 'view-root' });
-  renderActiveView(main);
-
-  const nav = el('nav', { class: 'bottom-nav', 'aria-label': t.nav.beranda }, [
-    // Home & Transaksi: tapping scrolls to the top (and opens at top); each
-    // tab keeps its own independent scroll position otherwise.
-    navButton('beranda', 'home', t.nav.beranda, { onClick: () => tapPrimaryTab('beranda') }),
-    navButton('dompet', 'wallet', t.nav.dompet, { onClick: () => tapPrimaryTab('dompet') }),
-    fabButton(),
-    navButton('transaksi', 'transactions', t.nav.transaksi, { onClick: () => tapPrimaryTab('transaksi') }),
-    // Lainnya tab: active for the hub AND any of its sub-features; tapping it
-    // always returns to the Lainnya hub.
-    navButton('lainnya', 'more', t.nav.lainnya, {
-      active: activeView === 'lainnya' || isSecondary,
-      onClick: openLainnyaTab,
-    }),
-  ]);
-
-  const children = [header, main, nav];
-
+  shell.toastSlot.textContent = '';
   if (state.error) {
-    children.push(
+    shell.toastSlot.appendChild(
       el('div', { class: 'toast', role: 'alert' }, [
         el('span', {}, state.error),
-        el(
-          'button',
-          { onClick: () => store.clearError(), 'aria-label': t.app.dismiss },
-          '✕'
-        ),
+        el('button', { onClick: () => store.clearError(), 'aria-label': t.app.dismiss }, '✕'),
       ])
     );
   }
 
+  shell.noticeSlot.textContent = '';
   if (state.notice) {
-    children.push(
-      el('div', { class: 'notice', role: 'status' }, state.notice)
-    );
+    shell.noticeSlot.appendChild(el('div', { class: 'notice', role: 'status' }, state.notice));
+  }
+}
+
+function renderApp() {
+  const state = store.getState();
+
+  if (!state.loaded) {
+    // Pre-load: show a simple loading screen (no shell yet).
+    shell = null;
+    render(root, el('div', { class: 'loading' }, t.app.loading));
+    return;
   }
 
-  render(root, children);
+  // Build the persistent shell once; afterwards only update pieces in place.
+  if (!shell || !root.contains(shell.header)) buildShell();
+
+  updateHeader();
+  updateNavActive();
+
+  // Swap only the <main> content for the active view.
+  const viewChanged = lastRenderedView !== activeView;
+  shell.main.textContent = '';
+  renderActiveView(shell.main);
+  // Subtle fade ONLY when the view actually changed (not on in-place data
+  // re-renders), so tab switches read as smooth without flashing on edits.
+  if (viewChanged) {
+    shell.main.classList.remove('view-enter');
+    void shell.main.offsetWidth; // force reflow so the animation can replay
+    shell.main.classList.add('view-enter');
+  }
+  lastRenderedView = activeView;
+
+  updateTransient();
 }
 
 /** Render whichever view is active into the main container. */
