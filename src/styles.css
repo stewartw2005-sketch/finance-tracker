@@ -76,6 +76,12 @@ html[data-theme='light'] {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Ensure the hidden attribute always wins, even over elements that set an
+   explicit display (e.g. header toggles use display:inline-flex). */
+[hidden] {
+  display: none !important;
+}
+
 html,
 body {
   margin: 0;

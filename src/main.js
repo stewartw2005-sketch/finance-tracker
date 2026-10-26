@@ -206,7 +206,7 @@ function headerTitle(view) {
 // place. Only the contents of <main> are swapped when the view changes. This
 // avoids destroying/recreating the sticky header + nav on every tab switch,
 // which caused a visible flicker/jump.
-/** @type {{ header: HTMLElement, h1: HTMLElement, headerLeft: HTMLElement, headerRight: HTMLElement, main: HTMLElement, navButtons: Record<string, HTMLElement>, toastSlot: HTMLElement, noticeSlot: HTMLElement } | null} */
+/** @type {{ header: HTMLElement, h1: HTMLElement, headerLeft: HTMLElement, headerRight: HTMLElement, themeBtn: HTMLElement, langBtn: HTMLElement, backBtn: HTMLElement, main: HTMLElement, navButtons: Record<string, HTMLElement>, toastSlot: HTMLElement, noticeSlot: HTMLElement } | null} */
 let shell = null;
 
 /** The view that was last rendered into <main>, to detect real view changes. */
@@ -215,8 +215,27 @@ let lastRenderedView = null;
 /** Build the one-time shell DOM and mount it into #app. */
 function buildShell() {
   const h1 = el('h1', {}, headerTitle(activeView));
-  const headerLeft = el('div', { class: 'header-left' });
-  const headerRight = el('div', { class: 'header-right' });
+
+  // Persistent header controls — created ONCE and only shown/hidden & updated
+  // in place, so switching tabs never recreates them (no flicker).
+  const themeBtn = el(
+    'button',
+    { class: 'header-toggle theme-toggle', type: 'button', onClick: () => toggleTheme() },
+    el('span', { class: 'theme-icon' }, icon(currentTheme === 'dark' ? 'sun' : 'moon', { size: 20 }))
+  );
+  const langBtn = el(
+    'button',
+    { class: 'header-toggle lang-toggle', type: 'button', onClick: () => toggleLanguage() },
+    el('span', { class: 'lang-code' }, currentLang === 'id' ? 'ID' : 'EN')
+  );
+  const backBtn = el(
+    'button',
+    { class: 'back-btn', onClick: () => backToLainnya(), 'aria-label': t.app.back },
+    [icon('chevronLeft', { size: 20 }), el('span', { class: 'back-label' }, t.app.back)]
+  );
+
+  const headerLeft = el('div', { class: 'header-left' }, [themeBtn, backBtn]);
+  const headerRight = el('div', { class: 'header-right' }, [langBtn]);
   const header = el('header', { class: 'app-header' }, [headerLeft, h1, headerRight]);
 
   const main = el('main', { class: 'main', id: 'view-root' });
@@ -241,62 +260,62 @@ function buildShell() {
   const toastSlot = el('div', { class: 'slot-toast' });
   const noticeSlot = el('div', { class: 'slot-notice' });
 
-  shell = { header, h1, headerLeft, headerRight, main, navButtons, toastSlot, noticeSlot };
+  shell = {
+    header, h1, headerLeft, headerRight, themeBtn, langBtn, backBtn,
+    main, navButtons, toastSlot, noticeSlot,
+  };
   render(root, [header, main, nav, toastSlot, noticeSlot]);
 }
 
-/** Rebuild the header's left/right zones + title for the current view. */
+/**
+ * Update the header for the current view by showing/hiding and re-labeling the
+ * PERSISTENT controls — never recreating them. This is what keeps tab switches
+ * flicker-free (switching between two primary tabs changes only the title).
+ */
 function updateHeader() {
   if (!shell) return;
   const isSecondary = SECONDARY.has(activeView);
 
-  // Title.
-  shell.h1.textContent = headerTitle(activeView);
+  // Title + back-mode class.
+  if (shell.h1.textContent !== headerTitle(activeView)) {
+    shell.h1.textContent = headerTitle(activeView);
+  }
   shell.header.classList.toggle('with-back', isSecondary);
 
-  // Left zone: theme toggle (primary only) + back button (secondary only).
-  shell.headerLeft.textContent = '';
-  if (!isSecondary) {
-    shell.headerLeft.appendChild(
-      el(
-        'button',
-        {
-          class: 'header-toggle theme-toggle',
-          type: 'button',
-          onClick: () => toggleTheme(),
-          'aria-label': currentTheme === 'dark' ? t.settings.toggleThemeToLight : t.settings.toggleThemeToDark,
-          title: currentTheme === 'dark' ? t.settings.themeLight : t.settings.themeDark,
-        },
-        icon(currentTheme === 'dark' ? 'sun' : 'moon', { size: 20 })
-      )
+  // Theme + language toggles: shown on primary tabs, hidden inside features.
+  shell.themeBtn.hidden = isSecondary;
+  shell.langBtn.hidden = isSecondary;
+  // Back button: only inside a feature.
+  shell.backBtn.hidden = !isSecondary;
+
+  // Keep the theme button's icon + labels in sync (only touch the DOM when the
+  // theme actually changed, so a plain tab switch doesn't repaint the icon).
+  const wantSun = currentTheme === 'dark';
+  if (shell.themeBtn.dataset.state !== (wantSun ? 'sun' : 'moon')) {
+    shell.themeBtn.dataset.state = wantSun ? 'sun' : 'moon';
+    const iconWrap = shell.themeBtn.querySelector('.theme-icon');
+    if (iconWrap) {
+      iconWrap.textContent = '';
+      iconWrap.appendChild(icon(wantSun ? 'sun' : 'moon', { size: 20 }));
+    }
+    shell.themeBtn.setAttribute(
+      'aria-label',
+      wantSun ? t.settings.toggleThemeToLight : t.settings.toggleThemeToDark
     );
-  } else {
-    shell.headerLeft.appendChild(
-      el(
-        'button',
-        { class: 'back-btn', onClick: () => backToLainnya(), 'aria-label': t.app.back },
-        [icon('chevronLeft', { size: 20 }), el('span', {}, t.app.back)]
-      )
-    );
+    shell.themeBtn.title = wantSun ? t.settings.themeLight : t.settings.themeDark;
   }
 
-  // Right zone: language toggle (primary only).
-  shell.headerRight.textContent = '';
-  if (!isSecondary) {
-    shell.headerRight.appendChild(
-      el(
-        'button',
-        {
-          class: 'header-toggle lang-toggle',
-          type: 'button',
-          onClick: () => toggleLanguage(),
-          'aria-label': t.settings.toggleLanguage,
-          title: t.settings.language,
-        },
-        el('span', { class: 'lang-code' }, currentLang === 'id' ? 'ID' : 'EN')
-      )
-    );
-  }
+  // Keep the language label in sync (only when it changed).
+  const langText = currentLang === 'id' ? 'ID' : 'EN';
+  const langCode = shell.langBtn.querySelector('.lang-code');
+  if (langCode && langCode.textContent !== langText) langCode.textContent = langText;
+  shell.langBtn.setAttribute('aria-label', t.settings.toggleLanguage);
+  shell.langBtn.title = t.settings.language;
+
+  // Keep the back label localized.
+  const backLabel = shell.backBtn.querySelector('.back-label');
+  if (backLabel && backLabel.textContent !== t.app.back) backLabel.textContent = t.app.back;
+  shell.backBtn.setAttribute('aria-label', t.app.back);
 }
 
 /** Update which bottom-nav tab is highlighted. */
