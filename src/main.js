@@ -31,15 +31,6 @@ let activeView = 'beranda';
 /** Views reachable from Lainnya that render with a back affordance. */
 const SECONDARY = new Set(['budget', 'aset', 'utang', 'investasi', 'laporan', 'kategori']);
 
-/**
- * The last Lainnya sub-feature the user opened (e.g. 'investasi'). When the
- * user taps the Lainnya tab again, we return here instead of the hub, so
- * switching to Beranda/Dompet/Transaksi and back doesn't lose their place.
- * Cleared when they explicitly go back to the hub.
- * @type {string|null}
- */
-let lastLainnyaView = null;
-
 const root = /** @type {HTMLElement} */ (document.getElementById('app'));
 
 // ---- Theme (light / dark) -------------------------------------------------
@@ -88,33 +79,79 @@ function toggleLanguage() {
   renderApp();
 }
 
-function setView(view) {
-  // Remember the last secondary (Lainnya) sub-feature we navigated into.
-  if (SECONDARY.has(view)) lastLainnyaView = view;
-  // Going back to the hub explicitly clears the remembered sub-feature.
-  if (view === 'lainnya') lastLainnyaView = null;
-  activeView = view;
-  renderApp();
+// ---- Per-view scroll memory ----------------------------------------------
+// The whole window scrolls (there's no per-view scroll container), so without
+// this every view would share one scroll position. We remember each view's
+// scrollY and restore it when returning, so e.g. Home and Transaksi keep
+// their own independent scroll positions.
+/** @type {Record<string, number>} */
+const scrollPositions = {};
+
+/** Save the current window scroll under the currently active view. */
+function saveScroll() {
+  scrollPositions[activeView] = window.scrollY || window.pageYOffset || 0;
 }
 
 /**
- * Handle a tap on the "Lainnya" bottom-nav tab: if there's a remembered
- * sub-feature, return to it; otherwise show the hub.
+ * Restore the saved scroll for the active view (0 if none). Done after render,
+ * on the next frame so layout is in place first.
+ * @param {number} [forced] - if given, scroll to exactly this position
+ */
+function restoreScroll(forced) {
+  const y = forced != null ? forced : scrollPositions[activeView] || 0;
+  // Two rAFs: let the new DOM lay out before scrolling.
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => window.scrollTo(0, y));
+  });
+}
+
+/**
+ * Switch views. Saves the outgoing view's scroll and restores the incoming
+ * view's scroll. Pass `{ toTop: true }` to force the new view to the top.
+ * @param {string} view
+ * @param {{ toTop?: boolean }} [opts]
+ */
+function setView(view, opts = {}) {
+  saveScroll();
+  if (opts.toTop) scrollPositions[view] = 0;
+  activeView = view;
+  renderApp();
+  restoreScroll();
+}
+
+/**
+ * Bottom-nav tap on a primary tab. If already on that tab, scroll to the top
+ * (common app convention). Otherwise switch to it and restore its scroll —
+ * except Home and Transaksi, which the user wants to always open at the top.
+ * @param {string} view
+ */
+function tapPrimaryTab(view) {
+  const alwaysTop = view === 'beranda' || view === 'transaksi';
+  if (activeView === view) {
+    // Re-tapping the current tab: jump to top.
+    scrollPositions[view] = 0;
+    restoreScroll(0);
+    return;
+  }
+  setView(view, { toTop: alwaysTop });
+}
+
+/**
+ * Handle a tap on the "Lainnya" bottom-nav tab. Per the latest preference,
+ * this always goes to the Lainnya hub (even from inside a sub-feature).
  */
 function openLainnyaTab() {
-  if (lastLainnyaView && SECONDARY.has(lastLainnyaView)) {
-    activeView = lastLainnyaView;
-  } else {
-    activeView = 'lainnya';
+  if (activeView === 'lainnya') {
+    scrollPositions['lainnya'] = 0;
+    restoreScroll(0);
+    return;
   }
-  renderApp();
+  setView('lainnya', { toTop: true });
 }
 
 /** Go back from a secondary view to the Lainnya hub (clears memory). */
 function backToLainnya() {
-  lastLainnyaView = null;
-  activeView = 'lainnya';
-  renderApp();
+  setView('lainnya', { toTop: true });
 }
 
 /** Map a view id to its header title. */
@@ -188,12 +225,14 @@ function renderApp() {
   renderActiveView(main);
 
   const nav = el('nav', { class: 'bottom-nav', 'aria-label': t.nav.beranda }, [
-    navButton('beranda', 'home', t.nav.beranda),
-    navButton('dompet', 'wallet', t.nav.dompet),
+    // Home & Transaksi: tapping scrolls to the top (and opens at top); each
+    // tab keeps its own independent scroll position otherwise.
+    navButton('beranda', 'home', t.nav.beranda, { onClick: () => tapPrimaryTab('beranda') }),
+    navButton('dompet', 'wallet', t.nav.dompet, { onClick: () => tapPrimaryTab('dompet') }),
     fabButton(),
-    navButton('transaksi', 'transactions', t.nav.transaksi),
+    navButton('transaksi', 'transactions', t.nav.transaksi, { onClick: () => tapPrimaryTab('transaksi') }),
     // Lainnya tab: active for the hub AND any of its sub-features; tapping it
-    // returns to the last sub-feature if there is one.
+    // always returns to the Lainnya hub.
     navButton('lainnya', 'more', t.nav.lainnya, {
       active: activeView === 'lainnya' || isSecondary,
       onClick: openLainnyaTab,
@@ -414,8 +453,14 @@ function setupEdgeSwipeBack() {
   });
 }
 
-// Re-render whenever the store changes.
-store.subscribe(renderApp);
+// Re-render whenever the store changes. Preserve the current scroll position
+// across these re-renders (they rebuild the DOM) so adding/editing data or
+// toggling things doesn't jump the page to the top.
+store.subscribe(() => {
+  const y = window.scrollY || window.pageYOffset || 0;
+  renderApp();
+  requestAnimationFrame(() => window.scrollTo(0, y));
+});
 
 // Boot.
 applyTheme(); // apply persisted theme before first paint
