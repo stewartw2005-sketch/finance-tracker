@@ -120,25 +120,27 @@ function setView(view, opts = {}) {
 }
 
 /**
- * Bottom-nav tap on a primary tab. If already on that tab, scroll to the top
- * (common app convention). Otherwise switch to it and restore its scroll —
- * except Home and Transaksi, which the user wants to always open at the top.
+ * Bottom-nav tap on a primary tab.
+ * - If already on that tab: scroll to the TOP.
+ * - If switching from another tab: restore this tab's last scroll position.
  * @param {string} view
  */
 function tapPrimaryTab(view) {
-  const alwaysTop = view === 'beranda' || view === 'transaksi';
   if (activeView === view) {
     // Re-tapping the current tab: jump to top.
     scrollPositions[view] = 0;
     restoreScroll(0);
     return;
   }
-  setView(view, { toTop: alwaysTop });
+  // Switching tabs: restore where we left this tab (setView restores scroll).
+  setView(view);
 }
 
 /**
- * Handle a tap on the "Lainnya" bottom-nav tab. Per the latest preference,
- * this always goes to the Lainnya hub (even from inside a sub-feature).
+ * Handle a tap on the "Lainnya" bottom-nav tab: always show the Lainnya hub.
+ * - If already on the hub: scroll to top.
+ * - If coming from a sub-feature or another tab: go to the hub and restore the
+ *   hub's last scroll position.
  */
 function openLainnyaTab() {
   if (activeView === 'lainnya') {
@@ -146,12 +148,12 @@ function openLainnyaTab() {
     restoreScroll(0);
     return;
   }
-  setView('lainnya', { toTop: true });
+  setView('lainnya');
 }
 
-/** Go back from a secondary view to the Lainnya hub (clears memory). */
+/** Go back from a secondary view to the Lainnya hub. */
 function backToLainnya() {
-  setView('lainnya', { toTop: true });
+  setView('lainnya');
 }
 
 /** Map a view id to its header title. */
