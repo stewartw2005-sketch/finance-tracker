@@ -36,9 +36,12 @@
 
   --nav-height: 60px;
 
-  /* Translucent chrome backgrounds (header / bottom nav). */
-  --header-bg: rgba(0, 0, 0, 0.85);
-  --nav-bg: rgba(10, 10, 12, 0.92);
+  /* Solid chrome backgrounds (header / bottom nav). Opaque (not translucent)
+     so there's no backdrop-filter recomposite when content behind them
+     re-renders — that caused a visible "blur then settle" flicker on tab
+     switches, especially on iOS. */
+  --header-bg: #000000;
+  --nav-bg: #0a0a0c;
 }
 
 /* Light theme palette — applied when <html data-theme="light">. Keeps the
@@ -64,8 +67,8 @@ html[data-theme='light'] {
   --focus: #2563eb;
   --scrim: rgba(20, 22, 26, 0.35);
 
-  --header-bg: rgba(255, 255, 255, 0.88);
-  --nav-bg: rgba(255, 255, 255, 0.92);
+  --header-bg: #f4f5f7;
+  --nav-bg: #ffffff;
 }
 
 * {
@@ -116,7 +119,6 @@ body {
   padding-left: calc(var(--safe-left) + var(--gap));
   padding-right: calc(var(--safe-right) + var(--gap));
   background: var(--header-bg);
-  backdrop-filter: saturate(140%) blur(10px);
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
@@ -229,7 +231,6 @@ body {
   align-items: stretch;
   justify-content: space-around;
   background: var(--nav-bg);
-  backdrop-filter: saturate(140%) blur(12px);
   border-top: 1px solid var(--border);
 }
 
