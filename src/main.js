@@ -106,6 +106,13 @@ function restoreScroll(forced) {
 }
 
 /**
+ * The last Lainnya sub-feature the user opened (e.g. 'investasi'). Used so
+ * that tapping the More tab FROM ANOTHER TAB returns to that feature.
+ * @type {string|null}
+ */
+let lastLainnyaView = null;
+
+/**
  * Switch views. Saves the outgoing view's scroll and restores the incoming
  * view's scroll. Pass `{ toTop: true }` to force the new view to the top.
  * @param {string} view
@@ -113,6 +120,8 @@ function restoreScroll(forced) {
  */
 function setView(view, opts = {}) {
   saveScroll();
+  // Remember the last Lainnya sub-feature we entered (for the More-tab return).
+  if (SECONDARY.has(view)) lastLainnyaView = view;
   if (opts.toTop) scrollPositions[view] = 0;
   activeView = view;
   renderApp();
@@ -137,18 +146,34 @@ function tapPrimaryTab(view) {
 }
 
 /**
- * Handle a tap on the "Lainnya" bottom-nav tab: always show the Lainnya hub.
- * - If already on the hub: scroll to top.
- * - If coming from a sub-feature or another tab: go to the hub and restore the
- *   hub's last scroll position.
+ * Handle a tap on the "Lainnya" (More) bottom-nav tab.
+ * - If currently INSIDE the Lainnya section (the hub or a sub-feature):
+ *     - on the hub already → scroll to top;
+ *     - inside a feature → go back to the hub.
+ * - If currently on ANOTHER tab (Home/Dompet/Transaksi): return to the last
+ *   feature you were in (if any), otherwise the hub.
  */
 function openLainnyaTab() {
-  if (activeView === 'lainnya') {
-    scrollPositions['lainnya'] = 0;
-    scrollToTopSmooth();
+  const inLainnyaSection = activeView === 'lainnya' || SECONDARY.has(activeView);
+
+  if (inLainnyaSection) {
+    if (activeView === 'lainnya') {
+      // Already on the hub: scroll to top.
+      scrollPositions['lainnya'] = 0;
+      scrollToTopSmooth();
+    } else {
+      // Inside a feature: go back to the hub.
+      setView('lainnya');
+    }
     return;
   }
-  setView('lainnya');
+
+  // Coming from another tab: resume the last feature, else the hub.
+  if (lastLainnyaView && SECONDARY.has(lastLainnyaView)) {
+    setView(lastLainnyaView);
+  } else {
+    setView('lainnya');
+  }
 }
 
 /** Smoothly scroll to the top (used when re-tapping the current tab). */
@@ -160,8 +185,14 @@ function scrollToTopSmooth() {
   }
 }
 
-/** Go back from a secondary view to the Lainnya hub. */
+/**
+ * Go back from a secondary view to the Lainnya hub (via the header back button
+ * or the edge-swipe). This is an explicit "leave the feature" action, so we
+ * clear the remembered feature — a later More-tap from another tab then shows
+ * the hub (your most recent Lainnya position), not the feature you left.
+ */
 function backToLainnya() {
+  lastLainnyaView = null;
   setView('lainnya');
 }
 
