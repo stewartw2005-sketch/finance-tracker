@@ -102,10 +102,15 @@ body {
 }
 
 .app {
-  min-height: 100vh;
-  min-height: 100dvh; /* dynamic viewport so short pages fill the screen too */
+  /* Fixed-height app shell: the header and bottom nav stay put while ONLY the
+     <main> element scrolls. This takes the header out of the scrolling context
+     entirely, so it never repaints/flickers when the content scrolls or when
+     switching tabs between two scrolled views. */
+  height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .loading {
@@ -118,8 +123,7 @@ body {
 /* ---- Layout ------------------------------------------------ */
 
 .app-header {
-  position: sticky;
-  top: 0;
+  flex: 0 0 auto;
   z-index: 10;
   padding: calc(var(--safe-top) + 14px) var(--gap) 14px;
   padding-left: calc(var(--safe-left) + var(--gap));
@@ -189,15 +193,20 @@ body {
 }
 
 .main {
-  flex: 1;
+  flex: 1 1 auto;
+  /* The ONLY scroll container. Header/nav sit outside it and stay fixed. */
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
   padding: var(--gap);
   padding-left: calc(var(--safe-left) + var(--gap));
   padding-right: calc(var(--safe-right) + var(--gap));
+  /* Clear the fixed bottom nav. */
   padding-bottom: calc(var(--nav-height) + var(--safe-bottom) + 80px);
   max-width: 720px;
   width: 100%;
   margin: 0 auto;
-  overflow-x: hidden;
   min-width: 0;
 }
 
