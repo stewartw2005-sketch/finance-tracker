@@ -87,22 +87,23 @@ function toggleLanguage() {
 /** @type {Record<string, number>} */
 const scrollPositions = {};
 
-/** Save the current window scroll under the currently active view. */
+/** Save the <main> scroll offset under the currently active view. */
 function saveScroll() {
-  scrollPositions[activeView] = window.scrollY || window.pageYOffset || 0;
+  if (shell && shell.main) scrollPositions[activeView] = shell.main.scrollTop || 0;
 }
 
 /**
- * Restore the saved scroll for the active view (0 if none). Called
- * SYNCHRONOUSLY right after the new content is rendered, before the browser
- * paints — so the page appears already at the correct scroll position with no
- * visible jump/snap. (The content is swapped synchronously, so its full height
- * exists by the time we scroll.)
+ * Restore the saved scroll for the active view (0 if none) on the <main>
+ * scroll container. Because <main> is its own scroller (the header/nav are
+ * OUTSIDE it and fixed), setting scrollTop never repaints the header — no
+ * flicker, even when switching between two scrolled tabs. Done synchronously
+ * right after the new content is rendered.
  * @param {number} [forced] - if given, scroll to exactly this position
  */
 function restoreScroll(forced) {
+  if (!shell || !shell.main) return;
   const y = forced != null ? forced : scrollPositions[activeView] || 0;
-  window.scrollTo(0, y);
+  shell.main.scrollTop = y;
 }
 
 /**
@@ -176,12 +177,13 @@ function openLainnyaTab() {
   }
 }
 
-/** Smoothly scroll to the top (used when re-tapping the current tab). */
+/** Smoothly scroll the <main> container to the top (re-tapping current tab). */
 function scrollToTopSmooth() {
+  if (!shell || !shell.main) return;
   try {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    shell.main.scrollTo({ top: 0, behavior: 'smooth' });
   } catch {
-    window.scrollTo(0, 0);
+    shell.main.scrollTop = 0;
   }
 }
 
@@ -573,13 +575,13 @@ function setupEdgeSwipeBack() {
   });
 }
 
-// Re-render whenever the store changes. Preserve the current scroll position
-// across these re-renders (they rebuild the DOM) so adding/editing data or
-// toggling things doesn't jump the page to the top.
+// Re-render whenever the store changes. Preserve the current <main> scroll
+// position across these re-renders (they rebuild the content) so adding/editing
+// data or toggling things doesn't jump the view to the top.
 store.subscribe(() => {
-  const y = window.scrollY || window.pageYOffset || 0;
+  const y = shell && shell.main ? shell.main.scrollTop : 0;
   renderApp();
-  requestAnimationFrame(() => window.scrollTo(0, y));
+  if (shell && shell.main) shell.main.scrollTop = y;
 });
 
 // Boot.
